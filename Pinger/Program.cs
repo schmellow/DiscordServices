@@ -8,7 +8,8 @@ namespace Schmellow.DiscordServices.Pinger
 {
     public sealed class Program
     {
-        static EventWaitHandle _exitEventHandle;
+        static ILogger _logger;
+        static string _instanceName;
 
         static Program()
         {
@@ -23,10 +24,10 @@ namespace Schmellow.DiscordServices.Pinger
 
         static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
         {
-            if (_exitEventHandle != null)
+            if (InstanceHelper.IsRunning(_logger, _instanceName))
             {
                 e.Cancel = true;
-                _exitEventHandle.Set();
+                InstanceHelper.Stop(_logger, _instanceName); ;
             }
             else
             {
@@ -54,97 +55,99 @@ namespace Schmellow.DiscordServices.Pinger
                     Console.WriteLine("Expecting arguments: <instanceName> <command> or help");
                     return;
                 }
-                string instanceName = args[0].Trim();
-                string command = args[1].Trim();
-                List<string> commandArgs = new List<string>();
-                for (int i = 2; i < args.Length; i++)
-                    commandArgs.Add(args[i].Trim());
-                if (!EventWaitHandle.TryOpenExisting(Constants.EVENT_NAME_EXIT + instanceName, out _exitEventHandle))
-                    _exitEventHandle = null;
-                MainInternal(instanceName, command, commandArgs.ToArray());
-            }
-            catch(Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-            }
-        }
-
-        static void MainInternal(string instanceName, string command, string[] commandArgs)
-        {
-            using (var logger = new NLogAdapter("bot-" + instanceName))
-            {
+                // Begin init
+                _instanceName = args[0].Trim();
                 try
                 {
-                    logger.Info("Instance '{0}'", instanceName);
-                    logger.Info("Running in '{0}'", System.IO.Directory.GetCurrentDirectory());
-                    switch (command)
-                    {
-                        case "run":
-                            RunBot(logger, instanceName, commandArgs);
-                            break;
-                        case "stop":
-                            StopBot(logger, instanceName, commandArgs);
-                            break;
-                        case "set-property":
-                            SetBotProperty(logger, instanceName, commandArgs);
-                            break;
-                        case "show-property":
-                            ShowBotProperty(logger, instanceName, commandArgs);
-                            break;
-                        case "list-properties":
-                            ListBotProperties(logger, instanceName, commandArgs);
-                            break;
-                        default:
-                            logger.Error("Unknown command '{0}'", command);
-                            break;
-                    }
+                    _logger = new NLogAdapter("bot-" + _instanceName);
                 }
                 catch (Exception ex)
                 {
-                    logger.Error(ex, ex.Message);
+                    _logger = new FallbackConsoleLogger();
+                    _logger.Error(ex, ex.Message);
                 }
+                _logger.Info("Instance '{0}'", _instanceName);
+                _logger.Info("Running in '{0}'", System.IO.Directory.GetCurrentDirectory());
+                // Parse and execute command
+                string command = args[1].Trim();
+                List<string> commandArgsList = new List<string>();
+                for (int i = 2; i < args.Length; i++)
+                    commandArgsList.Add(args[i].Trim());
+                string[] commandArgs = commandArgsList.ToArray();
+                switch (command)
+                {
+                    case "run":
+                        RunBot(commandArgs);
+                        break;
+                    case "stop":
+                        StopBot(commandArgs);
+                        break;
+                    case "set-property":
+                        SetBotProperty(commandArgs);
+                        break;
+                    case "show-property":
+                        ShowBotProperty(commandArgs);
+                        break;
+                    case "list-properties":
+                        ListBotProperties(commandArgs);
+                        break;
+                    default:
+                        _logger.Error("Unknown command '{0}'", command);
+                        break;
+                }
+            }
+            catch(Exception ex)
+            {
+                if (_logger != null)
+                    _logger.Error(ex, ex.Message);
+                else
+                    Console.WriteLine(ex.ToString());
+            }
+            finally
+            {
+                if (_logger != null)
+                    _logger.Dispose();
             }
         }
 
-        static void RunBot(ILogger logger, string instanceName, string[] commandArgs)
+        static void RunBot(string[] commandArgs)
         {
-            if(_exitEventHandle != null)
+            if(InstanceHelper.IsRunning(_logger, _instanceName))
             {
-                logger.Error("RUN: instance '{0}' already running", instanceName);
+                _logger.Error("RUN: instance '{0}' already running", _instanceName);
                 return;
             }
-            logger.Info("RUN: Running instance '{0}'", instanceName);
-            using(var storage = new LiteDbStorage(instanceName))
+            _logger.Info("RUN: Running instance '{0}'", _instanceName);
+            using(var storage = new LiteDbStorage(_instanceName))
             {
-                var bot = new Bot(logger, storage);
+                var bot = new Bot(_logger, storage);
                 bot.Run().GetAwaiter().GetResult();
-                _exitEventHandle = new EventWaitHandle(false, EventResetMode.AutoReset, Constants.EVENT_NAME_EXIT + instanceName);
-                _exitEventHandle.WaitOne();
+                InstanceHelper.Run(_logger, _instanceName);
                 bot.Stop().GetAwaiter().GetResult();
             }
         }
 
-        static void StopBot(ILogger logger, string instanceName, string[] commandArgs)
+        static void StopBot(string[] commandArgs)
         {
-            if(_exitEventHandle == null)
+            if(!InstanceHelper.IsRunning(_logger, _instanceName))
             {
-                logger.Error("STOP: No instance '{0}' detected to stop", instanceName);
+                _logger.Error("STOP: No instance '{0}' detected to stop", _instanceName);
                 return;
             }
-            logger.Info("STOP: Instance '{0}' detected running, stopping", instanceName);
-            _exitEventHandle.Set();
+            _logger.Info("STOP: Instance '{0}' detected running, stopping", _instanceName);
+            InstanceHelper.Stop(_logger, _instanceName);
         }
 
-        static void SetBotProperty(ILogger logger, string instanceName, string[] commandArgs)
+        static void SetBotProperty(string[] commandArgs)
         {
             if(commandArgs.Length < 2)
             {
-                logger.Error("SET-PROPERTY: Expecting command arguments - <property> [values]");
+                _logger.Error("SET-PROPERTY: Expecting command arguments - <property> [values]");
                 return;
             }
-            using(var storage = new LiteDbStorage(instanceName))
+            using(var storage = new LiteDbStorage(_instanceName))
             {
-                logger.Info("SET-PROPERTY[{0}]", commandArgs[0]);
+                _logger.Info("SET-PROPERTY[{0}]", commandArgs[0]);
                 var values = new HashSet<string>();
                 for (int i = 1; i < commandArgs.Length; i++)
                     values.Add(commandArgs[i]);
@@ -152,26 +155,26 @@ namespace Schmellow.DiscordServices.Pinger
             }
         }
 
-        static void ShowBotProperty(ILogger logger, string instanceName, string[] commandArgs)
+        static void ShowBotProperty(string[] commandArgs)
         {
             if (commandArgs.Length < 1)
             {
-                logger.Error("SHOW-PROPERTY: Expecting command arguments - <property>");
+                _logger.Error("SHOW-PROPERTY: Expecting command arguments - <property>");
                 return;
             }
-            using (var storage = new LiteDbStorage(instanceName))
+            using (var storage = new LiteDbStorage(_instanceName))
             {
-                logger.Info("SHOW-PROPERTY[{0}]", commandArgs[0]);
+                _logger.Info("SHOW-PROPERTY[{0}]", commandArgs[0]);
                 var valueString = string.Join(",", storage.GetProperty(commandArgs[0]));
                 Console.WriteLine("{0}='{1}'", commandArgs[0], valueString);
             }
         }
 
-        static void ListBotProperties(ILogger logger, string instanceName, string[] commandArgs)
+        static void ListBotProperties(string[] commandArgs)
         {
-            using(var storage = new LiteDbStorage(instanceName))
+            using(var storage = new LiteDbStorage(_instanceName))
             {
-                logger.Info("LIST-PROPERTIES");
+                _logger.Info("LIST-PROPERTIES");
                 var propertyNames = storage.GetPropertyNames();
                 foreach(string propertyName in propertyNames)
                 {
@@ -180,5 +183,6 @@ namespace Schmellow.DiscordServices.Pinger
                 }
             }
         }
+
     }
 }

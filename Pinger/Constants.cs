@@ -3,7 +3,7 @@
     public static class Constants
     {
         public const string ENV_WORKDIR = "PINGER_WORKDIR";
-        public const string EVENT_NAME_EXIT = "Schmellow.DiscordServices.Pinger.Exit.";
+        public const string PIPE_NAME = "Schmellow.DiscordServices.Pinger.";
 
         public const string ERROR_DENIED = "Denied";
 
