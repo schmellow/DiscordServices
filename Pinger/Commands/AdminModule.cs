@@ -52,17 +52,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task ShowElevatedUsers()
         {
-            var value = FormatValue(Constants.PROP_ELEVATED_USERS);
-            if (string.IsNullOrEmpty(value))
-            {
-                await ReplyAsync("Property is not set");
-            }
-            else
-            {
-                EmbedBuilder embedBuilder = new EmbedBuilder();
-                embedBuilder.AddField(Constants.PROP_ELEVATED_USERS, value);
-                await ReplyAsync(string.Empty, false, embedBuilder.Build());
-            }
+            await ShowProperty(Constants.PROP_ELEVATED_USERS);
         }
 
         [Command("set-elevated-users")]
@@ -73,12 +63,9 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task SetElevatedUsers(params IUser[] users)
         {
-            var oldValue = FormatValue(Constants.PROP_ELEVATED_USERS);
-            var names = users.Select(u => u.Username + "#" + u.Discriminator).ToArray();
-            _storage.SetProperty(Constants.PROP_ELEVATED_USERS, names);
-            var newValue = FormatValue(Constants.PROP_ELEVATED_USERS);
-            _logger.Info("Set {0}: '{1}' => '{2}'", Constants.PROP_ELEVATED_USERS, oldValue, newValue);
-            await ReplyAsync("Ok");
+            await SetProperty(
+                Constants.PROP_ELEVATED_USERS,
+                users.Select(u => u.Username + "#" + u.Discriminator).ToArray());
         }
 
         [Command("show-control-channels")]
@@ -89,17 +76,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task ShowControlChannels()
         {
-            var value = FormatValue(Constants.PROP_CONTROL_CHANNELS);
-            if (string.IsNullOrEmpty(value))
-            {
-                await ReplyAsync("Property is not set");
-            }
-            else
-            {
-                EmbedBuilder embedBuilder = new EmbedBuilder();
-                embedBuilder.AddField(Constants.PROP_CONTROL_CHANNELS, FormatValue(Constants.PROP_CONTROL_CHANNELS));
-                await ReplyAsync(string.Empty, false, embedBuilder.Build());
-            }
+            await ShowProperty(Constants.PROP_CONTROL_CHANNELS);
         }
 
         [Command("set-control-channels")]
@@ -110,12 +87,9 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task SetControlChannels(params IMessageChannel[] channels)
         {
-            var oldValue = FormatValue(Constants.PROP_CONTROL_CHANNELS);
-            var names = channels.Select(c => c.Name).ToArray();
-            _storage.SetProperty(Constants.PROP_CONTROL_CHANNELS, names);
-            var newValue = FormatValue(Constants.PROP_CONTROL_CHANNELS);
-            _logger.Info("Set {0}: '{1}' => '{2}'", Constants.PROP_CONTROL_CHANNELS, oldValue, newValue);
-            await ReplyAsync("Ok");
+            await SetProperty(
+                Constants.PROP_CONTROL_CHANNELS,
+                channels.Select(c => c.Name).ToArray());
         }
 
         [Command("show-default-ping-channel")]
@@ -126,17 +100,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task ShowDefaultPingChannel()
         {
-            var value = FormatValue(Constants.PROP_DEFAULT_PING_CHANNEL);
-            if (string.IsNullOrEmpty(value))
-            {
-                await ReplyAsync("Property is not set");
-            }
-            else
-            {
-                EmbedBuilder embedBuilder = new EmbedBuilder();
-                embedBuilder.AddField(Constants.PROP_DEFAULT_PING_CHANNEL, value);
-                await ReplyAsync(string.Empty, false, embedBuilder.Build());
-            }
+            await ShowProperty(Constants.PROP_DEFAULT_PING_CHANNEL);
         }
 
         [Command("set-default-ping-channel")]
@@ -147,11 +111,9 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task SetDefaultPingChannel(IMessageChannel channel = null)
         {
-            var oldValue = FormatValue(Constants.PROP_DEFAULT_PING_CHANNEL);
-            _storage.SetProperty(Constants.PROP_DEFAULT_PING_CHANNEL, channel == null ? string.Empty : channel.Name);
-            var newValue = FormatValue(Constants.PROP_DEFAULT_PING_CHANNEL);
-            _logger.Info("Set {0}: '{1}' => '{2}'", Constants.PROP_DEFAULT_PING_CHANNEL, oldValue, newValue);
-            await ReplyAsync("Ok");
+            await SetProperty(
+                Constants.PROP_DEFAULT_PING_CHANNEL,
+                channel == null ? string.Empty : channel.Name);
         }
 
         [Command("show-ping-users")]
@@ -162,17 +124,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task ShowPingUsers()
         {
-            var value = FormatValue(Constants.PROP_PING_USERS);
-            if (string.IsNullOrEmpty(value))
-            {
-                await ReplyAsync("Property is not set");
-            }
-            else
-            {
-                EmbedBuilder embedBuilder = new EmbedBuilder();
-                embedBuilder.AddField(Constants.PROP_PING_USERS, value);
-                await ReplyAsync(string.Empty, false, embedBuilder.Build());
-            }
+            await ShowProperty(Constants.PROP_PING_USERS);
         }
 
         [Command("set-ping-users")]
@@ -183,11 +135,54 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task SetPingUsers(params IUser[] users)
         {
-            var oldValue = FormatValue(Constants.PROP_PING_USERS);
-            var names = users.Select(u => u.Username + "#" + u.Discriminator).ToArray();
-            _storage.SetProperty(Constants.PROP_PING_USERS, names);
-            var newValue = FormatValue(Constants.PROP_PING_USERS);
-            _logger.Info("Set {0}: '{1}' => '{2}'", Constants.PROP_PING_USERS, oldValue, newValue);
+            await SetProperty(
+                Constants.PROP_PING_USERS,
+                users.Select(u => u.Username + "#" + u.Discriminator).ToArray());
+        }
+
+        [Command("show-ping-spoofing")]
+        [Summary("Show ping spoofing mode")]
+        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        public async Task ShowPingSpoofing()
+        {
+            await ShowProperty(Constants.PROP_PING_SPOOFING);
+        }
+
+        [Command("set-ping-spoofing")]
+        [Summary("Show ping spoofing mode. 'on' == enabled, anything else - disabled")]
+        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        public async Task SetPingSpoofing(string value = "")
+        {
+            await SetProperty(Constants.PROP_PING_SPOOFING, value);
+        }
+
+        async Task ShowProperty(string propertyName)
+        {
+            var value = FormatValue(propertyName);
+            if (string.IsNullOrEmpty(value))
+            {
+                await ReplyAsync("Property is not set");
+            }
+            else
+            {
+                EmbedBuilder embedBuilder = new EmbedBuilder();
+                embedBuilder.AddField(propertyName, value);
+                await ReplyAsync(string.Empty, false, embedBuilder.Build());
+            }
+        }
+
+        async Task SetProperty(string propertyName, params string[] value)
+        {
+            var oldValue = FormatValue(propertyName);
+            _storage.SetProperty(propertyName, value);
+            var newValue = FormatValue(propertyName);
+            _logger.Info("Set {0}: '{1}' => '{2}'", propertyName, oldValue, newValue);
             await ReplyAsync("Ok");
         }
 

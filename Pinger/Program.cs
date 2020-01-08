@@ -140,7 +140,7 @@ namespace Schmellow.DiscordServices.Pinger
 
         static void SetBotProperty(string[] commandArgs)
         {
-            if(commandArgs.Length < 2)
+            if(commandArgs.Length < 1)
             {
                 _logger.Error("SET-PROPERTY: Expecting command arguments - <property> [values]");
                 return;
@@ -150,7 +150,10 @@ namespace Schmellow.DiscordServices.Pinger
                 _logger.Info("SET-PROPERTY[{0}]", commandArgs[0]);
                 var values = new HashSet<string>();
                 for (int i = 1; i < commandArgs.Length; i++)
-                    values.Add(commandArgs[i]);
+                {
+                    if(!string.IsNullOrEmpty(commandArgs[i]))
+                        values.Add(commandArgs[i]);
+                }
                 storage.SetProperty(commandArgs[0], values);
             }
         }

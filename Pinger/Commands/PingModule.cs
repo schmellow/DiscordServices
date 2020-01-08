@@ -50,7 +50,15 @@ namespace Schmellow.DiscordServices.Pinger.Commands
             EmbedBuilder embedBuilder = new EmbedBuilder();
             embedBuilder.AddField("ping", message);
             Embed embed = embedBuilder.Build();
-            await channel.SendMessageAsync("@everyone\n", false, embed);
+            if(IsSpoofingOn())
+            {
+                var sentMessage = await channel.SendMessageAsync("@everyone\n");
+                await sentMessage.ModifyAsync(m => m.Embed = embed);
+            }
+            else
+            {
+                await channel.SendMessageAsync("@everyone\n", false, embed);
+            }
             return PingResult.FromSuccess();
         }
 
@@ -67,8 +75,21 @@ namespace Schmellow.DiscordServices.Pinger.Commands
             EmbedBuilder embedBuilder = new EmbedBuilder();
             embedBuilder.AddField("ping", message);
             Embed embed = embedBuilder.Build();
-            await channel.SendMessageAsync("@everyone\n", false, embed);
+            if(IsSpoofingOn())
+            {
+                var sentMessage = await channel.SendMessageAsync("@everyone\n");
+                await sentMessage.ModifyAsync(m => m.Embed = embed);
+            }
+            else
+            {
+                await channel.SendMessageAsync("@everyone\n", false, embed);
+            }
             return PingResult.FromSuccess();
+        }
+
+        bool IsSpoofingOn()
+        {
+            return _storage.GetProperty(Constants.PROP_PING_SPOOFING).FirstOrDefault() == "on";
         }
     }
 }
