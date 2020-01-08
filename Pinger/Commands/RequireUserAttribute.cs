@@ -28,9 +28,10 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         {
             if (context.User is SocketGuildUser gUser)
             {
+                var fullName = gUser.Username + "#" + gUser.Discriminator;
                 var storage = (IStorage)services.GetService(typeof(IStorage));
                 var users = storage.GetProperty(_userProperty);
-                if(users.Contains(gUser.Username))
+                if(users.Contains(fullName))
                     return Task.FromResult(PreconditionResult.FromSuccess());
             }
             return Task.FromResult(PreconditionResult.FromError(_errorMessage));

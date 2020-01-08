@@ -33,8 +33,9 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [Summary("Posts a ping into default ping channel")]
         [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
         [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_PING_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task<RuntimeResult> Ping([Remainder] string message)
         {
             _logger.Info("Pinging default channel with message '{0}'", message);
@@ -57,8 +58,9 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [Summary("Posts a ping into specified channel")]
         [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
         [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_PING_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task<RuntimeResult> PingChannel(IMessageChannel channel, [Remainder] string message)
         {
             _logger.Info("Pinging channel '{0}' with message '{1}'", channel.Name, message);

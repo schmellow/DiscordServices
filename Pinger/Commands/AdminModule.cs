@@ -20,8 +20,8 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [Summary("Shows all bot configuration properties")]
         [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
         [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task ShowProperties()
         {
             EmbedBuilder embedBuilder = new EmbedBuilder();
@@ -48,8 +48,8 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [Summary("Shows users who besides server admin can control bot parameters")]
         [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
         [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task ShowElevatedUsers()
         {
             var value = FormatValue(Constants.PROP_ELEVATED_USERS);
@@ -69,12 +69,12 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [Summary("Sets users who besides server admin can control bot parameters")]
         [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
         [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task SetElevatedUsers(params IUser[] users)
         {
             var oldValue = FormatValue(Constants.PROP_ELEVATED_USERS);
-            var names = users.Select(u => u.Username).ToArray();
+            var names = users.Select(u => u.Username + "#" + u.Discriminator).ToArray();
             _storage.SetProperty(Constants.PROP_ELEVATED_USERS, names);
             var newValue = FormatValue(Constants.PROP_ELEVATED_USERS);
             _logger.Info("Set {0}: '{1}' => '{2}'", Constants.PROP_ELEVATED_USERS, oldValue, newValue);
@@ -85,8 +85,8 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [Summary("Shows channels to which bot control is restricted. Empty value means no restriction")]
         [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
         [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task ShowControlChannels()
         {
             var value = FormatValue(Constants.PROP_CONTROL_CHANNELS);
@@ -106,8 +106,8 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [Summary("Sets channels to which bot control is restricted. Empty value means no restriction")]
         [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
         [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task SetControlChannels(params IMessageChannel[] channels)
         {
             var oldValue = FormatValue(Constants.PROP_CONTROL_CHANNELS);
@@ -122,8 +122,8 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [Summary("Shows the default ping channel")]
         [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
         [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task ShowDefaultPingChannel()
         {
             var value = FormatValue(Constants.PROP_DEFAULT_PING_CHANNEL);
@@ -143,14 +143,51 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [Summary("Sets the default ping channel")]
         [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
         [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task SetDefaultPingChannel(IMessageChannel channel = null)
         {
             var oldValue = FormatValue(Constants.PROP_DEFAULT_PING_CHANNEL);
             _storage.SetProperty(Constants.PROP_DEFAULT_PING_CHANNEL, channel == null ? string.Empty : channel.Name);
             var newValue = FormatValue(Constants.PROP_DEFAULT_PING_CHANNEL);
             _logger.Info("Set {0}: '{1}' => '{2}'", Constants.PROP_DEFAULT_PING_CHANNEL, oldValue, newValue);
+            await ReplyAsync("Ok");
+        }
+
+        [Command("show-ping-users")]
+        [Summary("Shows users who have right to ping")]
+        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        public async Task ShowPingUsers()
+        {
+            var value = FormatValue(Constants.PROP_PING_USERS);
+            if (string.IsNullOrEmpty(value))
+            {
+                await ReplyAsync("Property is not set");
+            }
+            else
+            {
+                EmbedBuilder embedBuilder = new EmbedBuilder();
+                embedBuilder.AddField(Constants.PROP_PING_USERS, value);
+                await ReplyAsync(string.Empty, false, embedBuilder.Build());
+            }
+        }
+
+        [Command("set-ping-users")]
+        [Summary("Sets users who have right to ping")]
+        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        public async Task SetPingUsers(params IUser[] users)
+        {
+            var oldValue = FormatValue(Constants.PROP_PING_USERS);
+            var names = users.Select(u => u.Username + "#" + u.Discriminator).ToArray();
+            _storage.SetProperty(Constants.PROP_PING_USERS, names);
+            var newValue = FormatValue(Constants.PROP_PING_USERS);
+            _logger.Info("Set {0}: '{1}' => '{2}'", Constants.PROP_PING_USERS, oldValue, newValue);
             await ReplyAsync("Ok");
         }
 

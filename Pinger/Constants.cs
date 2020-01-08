@@ -11,5 +11,6 @@
         public const string PROP_ELEVATED_USERS = "elevated-users";
         public const string PROP_CONTROL_CHANNELS = "control-channels";
         public const string PROP_DEFAULT_PING_CHANNEL = "default-ping-channel";
+        public const string PROP_PING_USERS = "ping-users";
     }
 }

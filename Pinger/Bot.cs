@@ -119,7 +119,7 @@ namespace Schmellow.DiscordServices.Pinger
             _logger.Info(
                 "Command='{0}'; User='{1}'; Server='{2}'; Channel='{3}' | {4}",
                 command.IsSpecified ? command.Value.Name : "",
-                context.User == null ? "" : context.User.Username,
+                context.User == null ? "" : context.User.Username + "#" + context.User.Discriminator,
                 context.Guild == null ? "" : context.Guild.Name,
                 context.Channel == null ? "" : context.Channel.Name,
                 error ? result?.ErrorReason : "SUCCESS");
