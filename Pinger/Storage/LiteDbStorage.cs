@@ -1,6 +1,7 @@
 ﻿using LiteDB;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace Schmellow.DiscordServices.Pinger.Storage
@@ -11,58 +12,40 @@ namespace Schmellow.DiscordServices.Pinger.Storage
 
         public LiteDbStorage(string instanceName)
         {
+            bool firstTime = !File.Exists(instanceName + ".db");
             _db = new LiteDatabase(instanceName + ".db");
+            if(firstTime)
+            {
+                foreach (string property in BotProperties.ALL_PROPERTIES.Keys)
+                    SetProperty(property, "");
+            }
         }
 
-        public HashSet<string> GetProperty(string id)
+        public string GetProperty(string property)
         {
             var properties = _db.GetCollection<StoredProperty>("configuration");
-            var property = properties.FindById(id);
-            return property == null ? new HashSet<string>() : property.Values;
+            return properties.FindById(property)?.Value;
         }
 
-        public void SetProperty(string id, HashSet<string> values)
+        public void SetProperty(string property, string value)
         {
+            if (value == null)
+                value = "";
             var properties = _db.GetCollection<StoredProperty>("configuration");
-            var property = properties.FindById(id);
-            if(property == null)
+            StoredProperty storedProperty = properties.FindById(property);
+            if (storedProperty == null)
             {
                 properties.Insert(new StoredProperty()
                 {
-                    Id = id,
-                    Values = values
+                    Id = property,
+                    Value = value
                 });
             }
             else
             {
-                property.Values = values;
-                properties.Update(property);
+                storedProperty.Value = value;
+                properties.Update(storedProperty);
             }
-        }
-
-        public void SetProperty(string id, params string[] values)
-        {
-            var properties = _db.GetCollection<StoredProperty>("configuration");
-            var property = properties.FindById(id);
-            if(property == null)
-            {
-                properties.Insert(new StoredProperty()
-                {
-                    Id = id,
-                    Values = new HashSet<string>(values)
-                });
-            }
-            else
-            {
-                property.Values = new HashSet<string>(values);
-                properties.Update(property);
-            }
-        }
-
-        public HashSet<string> GetPropertyNames()
-        {
-            var properties = _db.GetCollection<StoredProperty>("configuration");
-            return new HashSet<string>(properties.FindAll().Select(p => p.Id));
         }
 
         // TODO: Scheduling storage

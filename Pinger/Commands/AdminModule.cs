@@ -1,6 +1,8 @@
 ﻿using Discord;
 using Discord.Commands;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Schmellow.DiscordServices.Pinger.Commands
@@ -16,179 +18,199 @@ namespace Schmellow.DiscordServices.Pinger.Commands
             _storage = storage;
         }
 
-        [Command("show-properties")]
-        [Summary("Shows all bot configuration properties")]
+        [Command("show-property")]
+        [Summary("Shows value of the property")]
         [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireChannel(BotProperties.CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
         [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        public async Task ShowProperties()
+        [RequireUser(BotProperties.ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        public async Task ShowProperty([Remainder] string property)
         {
-            EmbedBuilder embedBuilder = new EmbedBuilder();
-            foreach (string propertyName in _storage.GetPropertyNames())
+            if (BotProperties.ExistsAndUnrestricted(property))
             {
-                if (propertyName == Constants.PROP_TOKEN)
-                    continue;
-                var value = FormatValue(propertyName);
-                if (string.IsNullOrEmpty(value))
-                    continue;
-                embedBuilder.AddField(propertyName, value);
-            }
-            if (embedBuilder.Fields.Count == 0)
-            {
-                await ReplyAsync("No properties currently set");
-            }
-            else
-            {
-                await ReplyAsync(string.Empty, false, embedBuilder.Build());
-            }
-        }
-
-        [Command("show-elevated-users")]
-        [Summary("Shows users who besides server admin can control bot parameters")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        public async Task ShowElevatedUsers()
-        {
-            await ShowProperty(Constants.PROP_ELEVATED_USERS);
-        }
-
-        [Command("set-elevated-users")]
-        [Summary("Sets users who besides server admin can control bot parameters")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        public async Task SetElevatedUsers(params IUser[] users)
-        {
-            await SetProperty(
-                Constants.PROP_ELEVATED_USERS,
-                users.Select(u => u.Username + "#" + u.Discriminator).ToArray());
-        }
-
-        [Command("show-control-channels")]
-        [Summary("Shows channels to which bot control is restricted. Empty value means no restriction")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        public async Task ShowControlChannels()
-        {
-            await ShowProperty(Constants.PROP_CONTROL_CHANNELS);
-        }
-
-        [Command("set-control-channels")]
-        [Summary("Sets channels to which bot control is restricted. Empty value means no restriction")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        public async Task SetControlChannels(params IMessageChannel[] channels)
-        {
-            await SetProperty(
-                Constants.PROP_CONTROL_CHANNELS,
-                channels.Select(c => c.Name).ToArray());
-        }
-
-        [Command("show-default-ping-channel")]
-        [Summary("Shows the default ping channel")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        public async Task ShowDefaultPingChannel()
-        {
-            await ShowProperty(Constants.PROP_DEFAULT_PING_CHANNEL);
-        }
-
-        [Command("set-default-ping-channel")]
-        [Summary("Sets the default ping channel")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        public async Task SetDefaultPingChannel(IMessageChannel channel = null)
-        {
-            await SetProperty(
-                Constants.PROP_DEFAULT_PING_CHANNEL,
-                channel == null ? string.Empty : channel.Name);
-        }
-
-        [Command("show-ping-users")]
-        [Summary("Shows users who have right to ping")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        public async Task ShowPingUsers()
-        {
-            await ShowProperty(Constants.PROP_PING_USERS);
-        }
-
-        [Command("set-ping-users")]
-        [Summary("Sets users who have right to ping")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        public async Task SetPingUsers(params IUser[] users)
-        {
-            await SetProperty(
-                Constants.PROP_PING_USERS,
-                users.Select(u => u.Username + "#" + u.Discriminator).ToArray());
-        }
-
-        [Command("show-ping-spoofing")]
-        [Summary("Show ping spoofing mode")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        public async Task ShowPingSpoofing()
-        {
-            await ShowProperty(Constants.PROP_PING_SPOOFING);
-        }
-
-        [Command("set-ping-spoofing")]
-        [Summary("Show ping spoofing mode. 'on' == enabled, anything else - disabled")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        public async Task SetPingSpoofing(string value = "")
-        {
-            await SetProperty(Constants.PROP_PING_SPOOFING, value);
-        }
-
-        async Task ShowProperty(string propertyName)
-        {
-            var value = FormatValue(propertyName);
-            if (string.IsNullOrEmpty(value))
-            {
-                await ReplyAsync("Property is not set");
+                string value = _storage.GetProperty(property);
+                if(string.IsNullOrEmpty(value))
+                {
+                    await ReplyAsync(string.Format("Property '{0}' is not set", property));
+                }
+                else
+                {
+                    EmbedBuilder embedBuilder = new EmbedBuilder();
+                    embedBuilder.AddField(property, value);
+                    await ReplyAsync(string.Empty, false, embedBuilder.Build());
+                }
             }
             else
             {
-                EmbedBuilder embedBuilder = new EmbedBuilder();
-                embedBuilder.AddField(propertyName, value);
-                await ReplyAsync(string.Empty, false, embedBuilder.Build());
+                await ReplyAsync(string.Format("Property '{0}' does not exist", property));
             }
         }
 
-        async Task SetProperty(string propertyName, params string[] value)
+        [Command("set-property")]
+        [Summary("Sets property")]
+        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireChannel(BotProperties.CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(BotProperties.ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        public async Task SetProperty(string property, params string[] values)
         {
-            var oldValue = FormatValue(propertyName);
-            _storage.SetProperty(propertyName, value);
-            var newValue = FormatValue(propertyName);
-            _logger.Info("Set {0}: '{1}' => '{2}'", propertyName, oldValue, newValue);
+            if (BotProperties.ExistsAndUnrestricted(property))
+            {
+                if(values == null || values.Length == 0)
+                {
+                    await SetString(property, string.Empty);
+                }
+                else
+                {
+                    var type = BotProperties.ALL_PROPERTIES[property].Type;
+                    switch (type)
+                    {
+                        case BotProperties.PropertyType.Users:
+                            await SetUsers(property, false, values);
+                            break;
+                        case BotProperties.PropertyType.Channels:
+                            await SetChannels(property, false, values);
+                            break;
+                        case BotProperties.PropertyType.User:
+                            await SetUsers(property, true, values);
+                            break;
+                        case BotProperties.PropertyType.Channel:
+                            await SetChannels(property, true, values);
+                            break;
+                        default:
+                            await SetString(property, string.Join(" ", values));
+                            break;
+                    }
+                }
+            }
+            else
+            {
+                await ReplyAsync(string.Format("Property '{0}' does not exist", property));
+            }
+        }
+
+        private async Task SetUsers(string property, bool single, params string[] values)
+        {
+            // load users
+            var idRegex = new Regex(@"\d+");
+            var users = new List<IGuildUser>();
+            foreach (string value in values)
+            {
+                Match match = idRegex.Match(value);
+                if (match.Success)
+                {
+                    ulong id;
+                    if (ulong.TryParse(match.Value, out id))
+                    {
+                        var user = await Context.Guild.GetUserAsync(id);
+                        if (user != null)
+                            users.Add(user);
+                    }
+                        
+                }
+            }
+            // set users
+            if(users.Count == 0)
+            {
+                await ReplyAsync("No users found");
+            }
+            else
+            {
+                if(single)
+                {
+                    if(users.Count > 1)
+                    {
+                        await ReplyAsync(string.Format("Expected single user, got {0}", users.Count));
+                    }
+                    else
+                    {
+                        await SetString(property, users[0].Username + "#" + users[0].Discriminator);
+                    }
+                }
+                else 
+                {
+                    await SetString(
+                        property,
+                        string.Join("|", users.Select(u => u.Username + "#" + u.Discriminator)) + "|");
+                }
+            }
+        }
+
+        private async Task SetChannels(string property, bool single, params string[] values)
+        {
+            // load channels
+            var idRegex = new Regex(@"\d+");
+            var channels = new List<IGuildChannel>();
+            foreach (string value in values)
+            {
+                Match match = idRegex.Match(value);
+                if (match.Success)
+                {
+                    ulong id;
+                    if (ulong.TryParse(match.Value, out id))
+                    {
+                        var channel = await Context.Guild.GetChannelAsync(id);
+                        if (channel != null)
+                            channels.Add(channel);
+                    }
+
+                }
+            }
+            // set channels
+            if (channels.Count == 0)
+            {
+                await ReplyAsync("No channels found");
+            }
+            else
+            {
+                if (single)
+                {
+                    if (channels.Count > 1)
+                    {
+                        await ReplyAsync(string.Format("Expected single channel, got {0}", channels.Count));
+                    }
+                    else
+                    {
+                        await SetString(property, channels[0].Name);
+                    }
+                }
+                else
+                {
+                    await SetString(
+                        property,
+                        string.Join("|", channels.Select(c => c.Name)) + "|");
+                }
+            }
+        }
+
+        private async Task SetString(string property, string value)
+        {
+            var oldValue = _storage.GetProperty(property);
+            _storage.SetProperty(property, value);
+            _logger.Info("Set {0}: '{1}' => '{2}'", property, oldValue, value);
             await ReplyAsync("Ok");
         }
 
-        string FormatValue(string propertyName)
+        [Command("list-properties")]
+        [Summary("Lists available properties")]
+        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireChannel(BotProperties.CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(BotProperties.ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        public async Task ListProperties()
         {
-            return string.Join(",", _storage.GetProperty(propertyName));
+            EmbedBuilder embedBuilder = new EmbedBuilder();
+            foreach(var property in BotProperties.ALL_PROPERTIES)
+            {
+                if(BotProperties.RESTRICTED_PROPERTIES.Contains(property.Key))
+                    continue;
+                string value = _storage.GetProperty(property.Key);
+                embedBuilder.AddField(
+                    string.Format("{0} - {1}", property.Key, property.Value.Description),
+                    string.Format("'{0}'", value));
+            }
+            await ReplyAsync("Current properties", false, embedBuilder.Build());
         }
+
     }
 }

@@ -5,10 +5,8 @@ namespace Schmellow.DiscordServices.Pinger
 {
     public interface IStorage : IDisposable
     {
-        HashSet<string> GetProperty(string id);
-        void SetProperty(string id, HashSet<string> values);
-        void SetProperty(string id, params string[] values);
-        HashSet<string> GetPropertyNames();
+        string GetProperty(string property);
+        void SetProperty(string property, string value);
         // TODO: Scheduling storage
         // Add event
         // List events

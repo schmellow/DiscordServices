@@ -39,7 +39,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
                         else
                             title += string.Format(" <{0}>", parameter.Name);
                     }
-                    var description = string.IsNullOrEmpty(command.Summary) ? "No info available" : command.Summary;
+                    var description = string.IsNullOrEmpty(command.Summary) ? "No description available" : command.Summary;
                     embedBuilder.AddField(title, description);
                 }
             }
@@ -49,8 +49,9 @@ namespace Schmellow.DiscordServices.Pinger.Commands
             }
             else
             {
-                await ReplyAsync(string.Empty, false, embedBuilder.Build());
+                await ReplyAsync("Help message", false, embedBuilder.Build());
             }
         }
+
     }
 }

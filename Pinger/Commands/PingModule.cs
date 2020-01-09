@@ -1,6 +1,5 @@
 ﻿using Discord;
 using Discord.Commands;
-using Discord.WebSocket;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -20,62 +19,55 @@ namespace Schmellow.DiscordServices.Pinger.Commands
     {
         ILogger _logger;
         IStorage _storage;
-        DiscordSocketClient _client;
 
-        public PingModule(ILogger logger, IStorage storage, DiscordSocketClient client)
+        public PingModule(ILogger logger, IStorage storage)
         {
             _logger = logger;
             _storage = storage;
-            _client = client;
         }
 
         [Command("ping")]
         [Summary("Posts a ping into default ping channel")]
         [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireChannel(BotProperties.CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
         [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_PING_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(BotProperties.ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(BotProperties.PING_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task<RuntimeResult> Ping([Remainder] string message)
         {
-            _logger.Info("Pinging default channel with message '{0}'", message);
-            var pingChannel = _storage.GetProperty(Constants.PROP_DEFAULT_PING_CHANNEL).FirstOrDefault();
-            if (string.IsNullOrEmpty(pingChannel))
+            var defaultChannelName = _storage.GetProperty(BotProperties.DEFAULT_PING_CHANNEL);
+            if (string.IsNullOrEmpty(defaultChannelName))
                 return PingResult.FromError("Default ping channel is not set");
-            IMessageChannel channel = _client
-                    .GetGuild(Context.Guild.Id)
-                    .Channels.FirstOrDefault(c => c.Name == pingChannel) as IMessageChannel;
+            var guildChannels = await Context.Guild.GetChannelsAsync();
+            IMessageChannel channel = guildChannels
+                .Where(c => c is IMessageChannel && c.Name == defaultChannelName)
+                .FirstOrDefault() as IMessageChannel;
             if (channel == null)
-                return PingResult.FromError(string.Format("Default channel '{0}' was not found", pingChannel));
-            EmbedBuilder embedBuilder = new EmbedBuilder();
-            embedBuilder.AddField("ping", message);
-            Embed embed = embedBuilder.Build();
-            if(IsSpoofingOn())
-            {
-                var sentMessage = await channel.SendMessageAsync("@everyone\n");
-                await sentMessage.ModifyAsync(m => m.Embed = embed);
-            }
-            else
-            {
-                await channel.SendMessageAsync("@everyone\n", false, embed);
-            }
-            return PingResult.FromSuccess();
+                return PingResult.FromError(string.Format("Default ping channel '{0}' was not found", defaultChannelName));
+            var result = await PingInternal(channel, message);
+            return result;
         }
 
         [Command("ping-channel")]
         [Summary("Posts a ping into specified channel")]
         [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(Constants.PROP_CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireChannel(BotProperties.CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
         [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(Constants.PROP_PING_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(BotProperties.ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireUser(BotProperties.PING_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
         public async Task<RuntimeResult> PingChannel(IMessageChannel channel, [Remainder] string message)
+        {
+            var result = await PingInternal(channel, message);
+            return result;
+        }
+
+        private async Task<RuntimeResult> PingInternal(IMessageChannel channel, string message)
         {
             _logger.Info("Pinging channel '{0}' with message '{1}'", channel.Name, message);
             EmbedBuilder embedBuilder = new EmbedBuilder();
-            embedBuilder.AddField("ping", message);
+            embedBuilder.AddField(Context.User.Username, message);
             Embed embed = embedBuilder.Build();
-            if(IsSpoofingOn())
+            if (IsSpoofingOn())
             {
                 var sentMessage = await channel.SendMessageAsync("@everyone\n");
                 await sentMessage.ModifyAsync(m => m.Embed = embed);
@@ -87,9 +79,11 @@ namespace Schmellow.DiscordServices.Pinger.Commands
             return PingResult.FromSuccess();
         }
 
-        bool IsSpoofingOn()
+        private bool IsSpoofingOn()
         {
-            return _storage.GetProperty(Constants.PROP_PING_SPOOFING).FirstOrDefault() == "on";
+            var value = _storage.GetProperty(BotProperties.PING_SPOOFING);
+            value = value == null ? "" : value.ToLowerInvariant();
+            return value == "on" || value == "yes" || value == "true" || value == "1" || value == "enabled";
         }
     }
 }

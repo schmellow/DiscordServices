@@ -1,7 +1,6 @@
 ﻿using Discord.Commands;
 using Discord.WebSocket;
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace Schmellow.DiscordServices.Pinger.Commands
@@ -22,16 +21,19 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         public override string ErrorMessage { get => _errorMessage; set => _errorMessage = value; }
 
         public override Task<PreconditionResult> CheckPermissionsAsync(
-            ICommandContext context, 
-            CommandInfo command, 
+            ICommandContext context,
+            CommandInfo command,
             IServiceProvider services)
         {
             if (context.User is SocketGuildUser gUser)
             {
-                var fullName = gUser.Username + "#" + gUser.Discriminator;
                 var storage = (IStorage)services.GetService(typeof(IStorage));
-                var users = storage.GetProperty(_userProperty);
-                if(users.Contains(fullName))
+                var propertyValue = storage.GetProperty(_userProperty);
+
+                if(string.IsNullOrEmpty(propertyValue))
+                    return Task.FromResult(PreconditionResult.FromError(_errorMessage));
+
+                if (propertyValue.Contains(gUser.Username + "#" + gUser.Discriminator + "|"))
                     return Task.FromResult(PreconditionResult.FromSuccess());
             }
             return Task.FromResult(PreconditionResult.FromError(_errorMessage));

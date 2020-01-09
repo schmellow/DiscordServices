@@ -1,7 +1,6 @@
 ﻿using Discord;
 using Discord.Commands;
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace Schmellow.DiscordServices.Pinger.Commands
@@ -30,10 +29,12 @@ namespace Schmellow.DiscordServices.Pinger.Commands
             if (context.Channel is IGuildChannel gChannel)
             {
                 var storage = (IStorage)services.GetService(typeof(IStorage));
-                var channels = storage.GetProperty(_channelProperty);
-                if (channels.Any() == false)
+                var propertyValue = storage.GetProperty(_channelProperty);
+
+                if (string.IsNullOrEmpty(propertyValue))
                     return Task.FromResult(PreconditionResult.FromSuccess());
-                if (channels.Contains(gChannel.Name))
+
+                if (propertyValue.Contains(gChannel.Name + "|"))
                     return Task.FromResult(PreconditionResult.FromSuccess());
             }
             return Task.FromResult(PreconditionResult.FromError(_errorMessage));

@@ -2,7 +2,7 @@
 using Schmellow.DiscordServices.Pinger.Storage;
 using System;
 using System.Collections.Generic;
-using System.Threading;
+using System.Linq;
 
 namespace Schmellow.DiscordServices.Pinger
 {
@@ -77,19 +77,19 @@ namespace Schmellow.DiscordServices.Pinger
                 switch (command)
                 {
                     case "run":
-                        RunBot(commandArgs);
+                        Run(commandArgs);
                         break;
                     case "stop":
-                        StopBot(commandArgs);
+                        Stop(commandArgs);
                         break;
                     case "set-property":
-                        SetBotProperty(commandArgs);
+                        SetProperty(commandArgs);
                         break;
                     case "show-property":
-                        ShowBotProperty(commandArgs);
+                        ShowProperty(commandArgs);
                         break;
                     case "list-properties":
-                        ListBotProperties(commandArgs);
+                        ListProperties(commandArgs);
                         break;
                     default:
                         _logger.Error("Unknown command '{0}'", command);
@@ -110,7 +110,7 @@ namespace Schmellow.DiscordServices.Pinger
             }
         }
 
-        static void RunBot(string[] commandArgs)
+        static void Run(string[] commandArgs)
         {
             if(InstanceHelper.IsRunning(_logger, _instanceName))
             {
@@ -127,7 +127,7 @@ namespace Schmellow.DiscordServices.Pinger
             }
         }
 
-        static void StopBot(string[] commandArgs)
+        static void Stop(string[] commandArgs)
         {
             if(!InstanceHelper.IsRunning(_logger, _instanceName))
             {
@@ -138,51 +138,60 @@ namespace Schmellow.DiscordServices.Pinger
             InstanceHelper.Stop(_logger, _instanceName);
         }
 
-        static void SetBotProperty(string[] commandArgs)
+        static void SetProperty(string[] commandArgs)
         {
             if(commandArgs.Length < 1)
             {
-                _logger.Error("SET-PROPERTY: Expecting command arguments - <property> [values]");
+                _logger.Error("SET-PROPERTY: Expecting command arguments - <property> <value>");
                 return;
             }
-            using(var storage = new LiteDbStorage(_instanceName))
+            _logger.Info("SET-PROPERTY[{0}]", commandArgs[0]);
+            string property = commandArgs[0];
+            if (!BotProperties.ALL_PROPERTIES.ContainsKey(property))
             {
-                _logger.Info("SET-PROPERTY[{0}]", commandArgs[0]);
-                var values = new HashSet<string>();
-                for (int i = 1; i < commandArgs.Length; i++)
-                {
-                    if(!string.IsNullOrEmpty(commandArgs[i]))
-                        values.Add(commandArgs[i]);
-                }
-                storage.SetProperty(commandArgs[0], values);
+                _logger.Error("Property {0} does not exist", property);
+                return;
+            }
+            string value = "";
+            if (commandArgs.Length > 1)
+                value = string.Join(" ", commandArgs.Skip(1));
+            var type = BotProperties.ALL_PROPERTIES[property].Type;
+            if(!string.IsNullOrEmpty(value) && BotProperties.IsMulticolumn(property))
+            {
+                value = value.Replace(",", " ").Replace(";", " ").Replace("|", " ");
+                string[] tokens = value.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                value = string.Join("|", tokens) + "|";
+            }
+            using (var storage = new LiteDbStorage(_instanceName))
+            {
+                storage.SetProperty(property, value);
             }
         }
 
-        static void ShowBotProperty(string[] commandArgs)
+        static void ShowProperty(string[] commandArgs)
         {
             if (commandArgs.Length < 1)
             {
                 _logger.Error("SHOW-PROPERTY: Expecting command arguments - <property>");
                 return;
             }
+            _logger.Info("SHOW-PROPERTY[{0}]", commandArgs[0]);
+            string property = commandArgs[0];
             using (var storage = new LiteDbStorage(_instanceName))
             {
-                _logger.Info("SHOW-PROPERTY[{0}]", commandArgs[0]);
-                var valueString = string.Join(",", storage.GetProperty(commandArgs[0]));
-                Console.WriteLine("{0}='{1}'", commandArgs[0], valueString);
+                string value = storage.GetProperty(property);
+                Console.WriteLine("{0}='{1}'", property, value);
             }
         }
 
-        static void ListBotProperties(string[] commandArgs)
+        static void ListProperties(string[] commandArgs)
         {
             using(var storage = new LiteDbStorage(_instanceName))
             {
                 _logger.Info("LIST-PROPERTIES");
-                var propertyNames = storage.GetPropertyNames();
-                foreach(string propertyName in propertyNames)
+                foreach(string property in BotProperties.ALL_PROPERTIES.Keys)
                 {
-                    var value = string.Join(",", storage.GetProperty(propertyName));
-                    Console.WriteLine("{0}='{1}'", propertyName, value);
+                    Console.WriteLine("{0}='{1}'", property, storage.GetProperty(property));
                 }
             }
         }

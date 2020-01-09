@@ -3,7 +3,6 @@ using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using System;
-using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -47,7 +46,7 @@ namespace Schmellow.DiscordServices.Pinger
             await _commandService.AddModulesAsync(Assembly.GetExecutingAssembly(), _serviceProvider);
             await _client.LoginAsync(
                 TokenType.Bot,
-                _storage.GetProperty(Constants.PROP_TOKEN).FirstOrDefault());
+                _storage.GetProperty(BotProperties.TOKEN));
             await _client.StartAsync();
         }
 
