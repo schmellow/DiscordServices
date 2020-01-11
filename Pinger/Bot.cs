@@ -114,16 +114,28 @@ namespace Schmellow.DiscordServices.Pinger
             IResult result)
         {
             // Exceptions are already logged automatically
-            bool error = !string.IsNullOrEmpty(result?.ErrorReason);
+            bool error = result?.IsSuccess != true;
+            string outcome;
+            if (error)
+            {
+                if (result?.Error == CommandError.UnmetPrecondition)
+                    outcome = "Denied";
+                else
+                    outcome = "Error: " + result?.ErrorReason;
+            }
+            else
+            {
+                outcome = "OK";
+            }
             _logger.Info(
                 "Command='{0}'; User='{1}'; Server='{2}'; Channel='{3}' | {4}",
                 command.IsSpecified ? command.Value.Name : "",
                 context.User == null ? "" : context.User.Username + "#" + context.User.Discriminator,
                 context.Guild == null ? "" : context.Guild.Name,
                 context.Channel == null ? "" : context.Channel.Name,
-                error ? result?.ErrorReason : "SUCCESS");
+                outcome);
             if(error)
-                await context.Channel.SendMessageAsync(result.ErrorReason);
+                await context.Channel.SendMessageAsync(outcome);
         }
     }
 }

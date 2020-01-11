@@ -45,8 +45,7 @@ namespace Schmellow.DiscordServices.Pinger
                 {
                     client.Connect(1000);
                     client.WriteByte(1);
-                    if (client.ReadByte() == 1)
-                        return true;
+                    return client.ReadByte() == 1;
                 }
             }
             catch (TimeoutException)
