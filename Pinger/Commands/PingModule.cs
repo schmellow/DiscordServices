@@ -26,13 +26,13 @@ namespace Schmellow.DiscordServices.Pinger.Commands
             _storage = storage;
         }
 
-        [Command("ping")]
+        [Command("ping", RunMode = RunMode.Async)]
         [Summary("Posts a ping into default ping channel")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(BotProperties.CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(BotProperties.ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(BotProperties.PING_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireContext(ContextType.Guild)]
+        [RequireChannel(BotProperties.CONTROL_CHANNELS)]
+        [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
+        [RequireUser(BotProperties.ELEVATED_USERS, Group = "Access")]
+        [RequireUser(BotProperties.PING_USERS, Group = "Access")]
         public async Task<RuntimeResult> Ping([Remainder] string message)
         {
             var defaultChannelName = _storage.GetProperty(BotProperties.DEFAULT_PING_CHANNEL);
@@ -48,13 +48,13 @@ namespace Schmellow.DiscordServices.Pinger.Commands
             return result;
         }
 
-        [Command("ping-channel")]
+        [Command("ping-channel", RunMode = RunMode.Async)]
         [Summary("Posts a ping into specified channel")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(BotProperties.CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(BotProperties.ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(BotProperties.PING_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireContext(ContextType.Guild)]
+        [RequireChannel(BotProperties.CONTROL_CHANNELS)]
+        [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
+        [RequireUser(BotProperties.ELEVATED_USERS, Group = "Access")]
+        [RequireUser(BotProperties.PING_USERS, Group = "Access")]
         public async Task<RuntimeResult> PingChannel(IMessageChannel channel, [Remainder] string message)
         {
             var result = await PingInternal(channel, message);
@@ -67,9 +67,10 @@ namespace Schmellow.DiscordServices.Pinger.Commands
             EmbedBuilder embedBuilder = new EmbedBuilder();
             embedBuilder.AddField(Context.User.Username, message);
             Embed embed = embedBuilder.Build();
-            if (IsSpoofingOn())
+            if (IsSpoofingOn)
             {
                 var sentMessage = await channel.SendMessageAsync("@everyone\n");
+                await Task.Delay(SpoofingDelay);
                 await sentMessage.ModifyAsync(m => m.Embed = embed);
             }
             else
@@ -79,11 +80,30 @@ namespace Schmellow.DiscordServices.Pinger.Commands
             return PingResult.FromSuccess();
         }
 
-        private bool IsSpoofingOn()
-        {
-            var value = _storage.GetProperty(BotProperties.PING_SPOOFING);
-            value = value == null ? "" : value.ToLowerInvariant();
-            return value == "on" || value == "yes" || value == "true" || value == "1" || value == "enabled";
+        private bool IsSpoofingOn
+        { 
+            get
+            {
+                var value = _storage.GetProperty(BotProperties.PING_SPOOFING);
+                value = value == null ? "" : value.ToLowerInvariant();
+                return value == "on" || value == "yes" || value == "true" || value == "1" || value == "enabled";
+            }
         }
+
+        private int SpoofingDelay
+        {
+            get
+            {
+                string delayValue = _storage.GetProperty(BotProperties.SPOOFING_DELAY);
+                if (!string.IsNullOrEmpty(delayValue))
+                {
+                    int delay;
+                    if (int.TryParse(delayValue, out delay))
+                        return delay * 1000;
+                }
+                return 0;
+            }
+        }
+
     }
 }

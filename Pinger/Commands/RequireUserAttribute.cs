@@ -35,6 +35,12 @@ namespace Schmellow.DiscordServices.Pinger.Commands
 
                 if (propertyValue.Contains(gUser.Username + "#" + gUser.Discriminator + "|"))
                     return Task.FromResult(PreconditionResult.FromSuccess());
+
+                foreach(var role in gUser.Roles)
+                {
+                    if(propertyValue.Contains(role.Name + "|"))
+                        return Task.FromResult(PreconditionResult.FromSuccess());
+                }
             }
             return Task.FromResult(PreconditionResult.FromError(_errorMessage));
         }

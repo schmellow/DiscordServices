@@ -20,21 +20,24 @@ namespace Schmellow.DiscordServices.Pinger.Commands
 
         [Command("show-property")]
         [Summary("Shows value of the property")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(BotProperties.CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(BotProperties.ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireContext(ContextType.Guild)]
+        [RequireChannel(BotProperties.CONTROL_CHANNELS)]
+        [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
+        [RequireUser(BotProperties.ELEVATED_USERS, Group = "Access")]
         public async Task ShowProperty([Remainder] string property)
         {
             if (BotProperties.ExistsAndUnrestricted(property))
             {
                 string value = _storage.GetProperty(property);
+                value = value == null ? "" : value;
                 if(string.IsNullOrEmpty(value))
                 {
                     await ReplyAsync(string.Format("Property '{0}' is not set", property));
                 }
                 else
                 {
+                    if (BotProperties.IsMulticolumn(property))
+                        value = value.TrimEnd('|').Replace("|", ", ");
                     EmbedBuilder embedBuilder = new EmbedBuilder();
                     embedBuilder.AddField(property, value);
                     await ReplyAsync(string.Empty, false, embedBuilder.Build());
@@ -48,10 +51,10 @@ namespace Schmellow.DiscordServices.Pinger.Commands
 
         [Command("set-property")]
         [Summary("Sets property")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(BotProperties.CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(BotProperties.ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireContext(ContextType.Guild)]
+        [RequireChannel(BotProperties.CONTROL_CHANNELS)]
+        [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
+        [RequireUser(BotProperties.ELEVATED_USERS, Group = "Access")]
         public async Task SetProperty(string property, params string[] values)
         {
             if (BotProperties.ExistsAndUnrestricted(property))
@@ -93,7 +96,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         {
             // load users
             var idRegex = new Regex(@"\d+");
-            var users = new List<IGuildUser>();
+            var names = new HashSet<string>();
             foreach (string value in values)
             {
                 Match match = idRegex.Match(value);
@@ -104,34 +107,41 @@ namespace Schmellow.DiscordServices.Pinger.Commands
                     {
                         var user = await Context.Guild.GetUserAsync(id);
                         if (user != null)
-                            users.Add(user);
+                        {
+                            names.Add(user.Username + "#" + user.Discriminator);
+                        }
+                        else
+                        {
+                            var role = Context.Guild.GetRole(id);
+                            if (role != null)
+                                names.Add(role.Name);
+                        }
                     }
-                        
                 }
             }
             // set users
-            if(users.Count == 0)
+            if(names.Count == 0)
             {
-                await ReplyAsync("No users found");
+                await ReplyAsync("No users/roles found");
             }
             else
             {
                 if(single)
                 {
-                    if(users.Count > 1)
+                    if(names.Count > 1)
                     {
-                        await ReplyAsync(string.Format("Expected single user, got {0}", users.Count));
+                        await ReplyAsync(string.Format("Expected single user/role value, got {0}", names.Count));
                     }
                     else
                     {
-                        await SetString(property, users[0].Username + "#" + users[0].Discriminator);
+                        await SetString(property, names.First());
                     }
                 }
                 else 
                 {
                     await SetString(
                         property,
-                        string.Join("|", users.Select(u => u.Username + "#" + u.Discriminator)) + "|");
+                        string.Join("|", names) + "|");
                 }
             }
         }
@@ -167,7 +177,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
                 {
                     if (channels.Count > 1)
                     {
-                        await ReplyAsync(string.Format("Expected single channel, got {0}", channels.Count));
+                        await ReplyAsync(string.Format("Expected single channel value, got {0}", channels.Count));
                     }
                     else
                     {
@@ -193,10 +203,10 @@ namespace Schmellow.DiscordServices.Pinger.Commands
 
         [Command("list-properties")]
         [Summary("Lists available properties")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireChannel(BotProperties.CONTROL_CHANNELS, ErrorMessage = Constants.ERROR_DENIED)]
-        [RequireAdmin(ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
-        [RequireUser(BotProperties.ELEVATED_USERS, ErrorMessage = Constants.ERROR_DENIED, Group = "Perm")]
+        [RequireContext(ContextType.Guild)]
+        [RequireChannel(BotProperties.CONTROL_CHANNELS)]
+        [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
+        [RequireUser(BotProperties.ELEVATED_USERS, Group = "Access")]
         public async Task ListProperties()
         {
             EmbedBuilder embedBuilder = new EmbedBuilder();
@@ -205,6 +215,9 @@ namespace Schmellow.DiscordServices.Pinger.Commands
                 if(BotProperties.RESTRICTED_PROPERTIES.Contains(property.Key))
                     continue;
                 string value = _storage.GetProperty(property.Key);
+                value = value == null ? "" : value;
+                if(BotProperties.IsMulticolumn(property.Key))
+                    value = value.TrimEnd('|').Replace("|", ", ");
                 embedBuilder.AddField(
                     string.Format("{0} - {1}", property.Key, property.Value.Description),
                     string.Format("'{0}'", value));

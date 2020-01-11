@@ -30,6 +30,7 @@ namespace Schmellow.DiscordServices.Pinger
         public const string DEFAULT_PING_CHANNEL = "default-ping-channel";
         public const string PING_USERS = "ping-users";
         public const string PING_SPOOFING = "ping-spoofing";
+        public const string SPOOFING_DELAY = "spoofing-delay";
 
         public static readonly Dictionary<string, PropertyInfo> ALL_PROPERTIES = new Dictionary<string, PropertyInfo>()
         {
@@ -38,7 +39,8 @@ namespace Schmellow.DiscordServices.Pinger
             { CONTROL_CHANNELS, new PropertyInfo("Channels to which bot control is restricted", PropertyType.Channels) },
             { DEFAULT_PING_CHANNEL, new PropertyInfo("Default output channel for pings", PropertyType.Channel) },
             { PING_USERS, new PropertyInfo("Users allowed to ping", PropertyType.Users) },
-            { PING_SPOOFING, new PropertyInfo("Spoofing mode", PropertyType.String) }
+            { PING_SPOOFING, new PropertyInfo("Spoofing mode", PropertyType.String) },
+            { SPOOFING_DELAY, new PropertyInfo("Spoofing delay in seconds", PropertyType.String) }
         };
 
         public static readonly HashSet<string> RESTRICTED_PROPERTIES = new HashSet<string>()

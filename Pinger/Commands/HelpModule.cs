@@ -20,7 +20,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
 
         [Command("help")]
         [Summary("Prints help message")]
-        [RequireContext(ContextType.Guild, ErrorMessage = Constants.ERROR_DENIED)]
+        [RequireContext(ContextType.Guild)]
         public async Task Help()
         {
             EmbedBuilder embedBuilder = new EmbedBuilder();
