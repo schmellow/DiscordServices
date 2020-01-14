@@ -3,8 +3,10 @@ using System.IO.Pipes;
 
 namespace Schmellow.DiscordServices.Pinger
 {
-    public static class InstanceHelper
+    public static class InstanceManager
     {
+        public const string PIPE_NAME = "Schmellow.DiscordServices.Pinger.";
+
         public static void Run(ILogger logger, string instanceName)
         {
             bool run = true;
@@ -12,7 +14,7 @@ namespace Schmellow.DiscordServices.Pinger
             {
                 try
                 {
-                    using (var server = new NamedPipeServerStream(Constants.PIPE_NAME + instanceName, PipeDirection.InOut))
+                    using (var server = new NamedPipeServerStream(PIPE_NAME + instanceName, PipeDirection.InOut))
                     {
                         server.WaitForConnection();
                         switch(server.ReadByte())
@@ -41,7 +43,7 @@ namespace Schmellow.DiscordServices.Pinger
         {
             try
             {
-                using (var client = new NamedPipeClientStream(".", Constants.PIPE_NAME + instanceName, PipeDirection.InOut))
+                using (var client = new NamedPipeClientStream(".", PIPE_NAME + instanceName, PipeDirection.InOut))
                 {
                     client.Connect(1000);
                     client.WriteByte(1);
@@ -64,7 +66,7 @@ namespace Schmellow.DiscordServices.Pinger
         {
             try
             {
-                using (var client = new NamedPipeClientStream(".", Constants.PIPE_NAME + instanceName, PipeDirection.Out))
+                using (var client = new NamedPipeClientStream(".", PIPE_NAME + instanceName, PipeDirection.Out))
                 {
                     client.Connect(1000);
                     client.WriteByte(2);

@@ -1,6 +1,7 @@
 ﻿using Discord.Commands;
 using Discord.WebSocket;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Schmellow.DiscordServices.Pinger.Commands
@@ -27,22 +28,23 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         {
             if (context.User is SocketGuildUser gUser)
             {
-                var storage = (IStorage)services.GetService(typeof(IStorage));
-                var propertyValue = storage.GetProperty(_userProperty);
-
-                if(string.IsNullOrEmpty(propertyValue))
-                    return Task.FromResult(PreconditionResult.FromError(_errorMessage));
-
-                if (propertyValue.Contains(gUser.Username + "#" + gUser.Discriminator + "|"))
-                    return Task.FromResult(PreconditionResult.FromSuccess());
-
-                foreach(var role in gUser.Roles)
+                Configuration configuration = services.GetService(typeof(Configuration)) as Configuration;
+                var userProperty = configuration.GetProperty(context.Guild.Id, _userProperty) as HashSet<string>;
+                if(userProperty != null)
                 {
-                    if(propertyValue.Contains(role.Name + "|"))
+                    var userValue = gUser.Username + "#" + gUser.Discriminator;
+                    if (userProperty.Contains(userValue))
                         return Task.FromResult(PreconditionResult.FromSuccess());
+                    foreach(var role in gUser.Roles)
+                    {
+                        if(userProperty.Contains(role.Name))
+                            return Task.FromResult(PreconditionResult.FromSuccess());
+                    }
                 }
             }
             return Task.FromResult(PreconditionResult.FromError(_errorMessage));
         }
+
     }
+
 }

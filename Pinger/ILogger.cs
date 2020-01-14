@@ -2,7 +2,7 @@
 
 namespace Schmellow.DiscordServices.Pinger
 {
-    public interface ILogger : IDisposable
+    public interface ILogger
     {
         void Info(string message, params object[] args);
         void Info(Exception ex, string message, params object[] args);

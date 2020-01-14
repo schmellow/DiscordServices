@@ -2,6 +2,7 @@
 using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
+using Schmellow.DiscordServices.Pinger.Services;
 using System;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -11,20 +12,23 @@ namespace Schmellow.DiscordServices.Pinger
     public sealed class Bot
     {
         readonly ILogger _logger;
-        readonly IStorage _storage;
+        readonly Configuration _configuration;
         readonly IServiceProvider _serviceProvider;
 
         readonly DiscordSocketClient _client;
         readonly CommandService _commandService;
+        readonly MessagingService _messagingService;
+        readonly SchedulingService _schedulingService;
 
-        public Bot(ILogger logger, IStorage storage)
+        public Bot(ILogger logger, Configuration configuration)
         {
             _logger = logger;
-            _storage = storage;
+            _configuration = configuration;
 
             _client = new DiscordSocketClient();
             _client.Log += Log;
             _client.MessageReceived += HandleMessage;
+            _client.Ready += ClientReady;
 
             _commandService = new CommandService(new CommandServiceConfig
             {
@@ -33,26 +37,37 @@ namespace Schmellow.DiscordServices.Pinger
             });
             _commandService.Log += Log;
             _commandService.CommandExecuted += CommandExecuted;
+            
+            _messagingService = new MessagingService(_logger, _configuration, _client);
+            _schedulingService = new SchedulingService(_logger, _configuration);
+            _schedulingService.PingEvent += _messagingService.PingEvent;
 
             var services = new ServiceCollection();
             services.AddSingleton<ILogger>(_logger);
-            services.AddSingleton<IStorage>(_storage);
+            services.AddSingleton<Configuration>(_configuration);
             services.AddSingleton<DiscordSocketClient>(_client);
+            services.AddSingleton<MessagingService>(_messagingService);
+            services.AddSingleton<SchedulingService>(_schedulingService);
             _serviceProvider = services.BuildServiceProvider();
         }
 
         public async Task Run()
         {
             await _commandService.AddModulesAsync(Assembly.GetExecutingAssembly(), _serviceProvider);
-            await _client.LoginAsync(
-                TokenType.Bot,
-                _storage.GetProperty(BotProperties.TOKEN));
+            await _client.LoginAsync(TokenType.Bot, _configuration.Token);
             await _client.StartAsync();
+        }
+
+        private async Task ClientReady()
+        {
+            await Task.Run(() => _schedulingService.Run());
         }
 
         public async Task Stop()
         {
             _logger.Info("Shutting down");
+            if (_schedulingService != null)
+                await Task.Run(() => _schedulingService.Stop());
             if (_client != null)
                 await _client.StopAsync();
         }
@@ -137,5 +152,6 @@ namespace Schmellow.DiscordServices.Pinger
             if(error)
                 await context.Channel.SendMessageAsync(outcome);
         }
+
     }
 }

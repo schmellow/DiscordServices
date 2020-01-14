@@ -1,5 +1,5 @@
 ﻿using Schmellow.DiscordServices.Pinger.Logging;
-using Schmellow.DiscordServices.Pinger.Storage;
+using Schmellow.DiscordServices.Pinger.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,13 +8,15 @@ namespace Schmellow.DiscordServices.Pinger
 {
     public sealed class Program
     {
+        public const string ENV_WORKDIR = "PINGER_WORKDIR";
+
         static ILogger _logger;
         static string _instanceName;
 
         static Program()
         {
             Console.CancelKeyPress += Console_CancelKeyPress;
-            var workDir = Environment.GetEnvironmentVariable(Constants.ENV_WORKDIR);
+            var workDir = Environment.GetEnvironmentVariable(ENV_WORKDIR);
             if (!string.IsNullOrEmpty(workDir))
             {
                 workDir = workDir.Trim();
@@ -24,10 +26,10 @@ namespace Schmellow.DiscordServices.Pinger
 
         static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
         {
-            if (InstanceHelper.IsRunning(_logger, _instanceName))
+            if (InstanceManager.IsRunning(_logger, _instanceName))
             {
                 e.Cancel = true;
-                InstanceHelper.Stop(_logger, _instanceName); ;
+                InstanceManager.Stop(_logger, _instanceName); ;
             }
             else
             {
@@ -44,10 +46,8 @@ namespace Schmellow.DiscordServices.Pinger
                     Console.WriteLine("Available commands:");
                     Console.WriteLine(" - run");
                     Console.WriteLine(" - stop");
-                    Console.WriteLine(" - set-property <property> <value>");
-                    Console.WriteLine(" - show-property <property>");
-                    Console.WriteLine(" - list-properties");
-                    Console.WriteLine("Use '{0}' variable to override working directory", Constants.ENV_WORKDIR);
+                    Console.WriteLine(" - set-token <token>");
+                    Console.WriteLine("Use '{0}' variable to override working directory", ENV_WORKDIR);
                     return;
                 }
                 else if(args.Length < 2)
@@ -59,7 +59,7 @@ namespace Schmellow.DiscordServices.Pinger
                 _instanceName = args[0].Trim();
                 try
                 {
-                    _logger = new NLogAdapter("bot-" + _instanceName);
+                    _logger = new NLogAdapter(_instanceName);
                 }
                 catch (Exception ex)
                 {
@@ -82,14 +82,8 @@ namespace Schmellow.DiscordServices.Pinger
                     case "stop":
                         Stop(commandArgs);
                         break;
-                    case "set-property":
-                        SetProperty(commandArgs);
-                        break;
-                    case "show-property":
-                        ShowProperty(commandArgs);
-                        break;
-                    case "list-properties":
-                        ListProperties(commandArgs);
+                    case "set-token":
+                        SetToken(commandArgs);
                         break;
                     default:
                         _logger.Error("Unknown command '{0}'", command);
@@ -105,95 +99,49 @@ namespace Schmellow.DiscordServices.Pinger
             }
             finally
             {
-                if (_logger != null)
-                    _logger.Dispose();
+                if (_logger != null && _logger is IDisposable)
+                    ((IDisposable)_logger).Dispose();
             }
         }
 
         static void Run(string[] commandArgs)
         {
-            if(InstanceHelper.IsRunning(_logger, _instanceName))
+            if(InstanceManager.IsRunning(_logger, _instanceName))
             {
-                _logger.Error("RUN: instance '{0}' already running", _instanceName);
+                _logger.Error("Instance '{0}' already running", _instanceName);
                 return;
             }
-            _logger.Info("RUN: Running instance '{0}'", _instanceName);
-            using(var storage = new LiteDbStorage(_instanceName))
-            {
-                var bot = new Bot(_logger, storage);
-                bot.Run().GetAwaiter().GetResult();
-                InstanceHelper.Run(_logger, _instanceName);
-                bot.Stop().GetAwaiter().GetResult();
-            }
+            _logger.Info("Running instance '{0}'", _instanceName);
+            var configuration = Configuration.Load(_instanceName);
+            var bot = new Bot(_logger, configuration);
+            bot.Run().GetAwaiter().GetResult();
+            InstanceManager.Run(_logger, _instanceName);
+            bot.Stop().GetAwaiter().GetResult();
         }
 
         static void Stop(string[] commandArgs)
         {
-            if(!InstanceHelper.IsRunning(_logger, _instanceName))
+            if(!InstanceManager.IsRunning(_logger, _instanceName))
             {
-                _logger.Error("STOP: No instance '{0}' detected to stop", _instanceName);
+                _logger.Error("No instance '{0}' detected to stop", _instanceName);
                 return;
             }
-            _logger.Info("STOP: Instance '{0}' detected running, stopping", _instanceName);
-            InstanceHelper.Stop(_logger, _instanceName);
+            _logger.Info("Instance '{0}' detected running, stopping", _instanceName);
+            InstanceManager.Stop(_logger, _instanceName);
         }
 
-        static void SetProperty(string[] commandArgs)
+        static void SetToken(string[] commandArgs)
         {
             if(commandArgs.Length < 1)
             {
-                _logger.Error("SET-PROPERTY: Expecting command arguments - <property> <value>");
+                _logger.Error("Expecting token string");
                 return;
             }
-            _logger.Info("SET-PROPERTY[{0}]", commandArgs[0]);
-            string property = commandArgs[0];
-            if (!BotProperties.ALL_PROPERTIES.ContainsKey(property))
-            {
-                _logger.Error("Property {0} does not exist", property);
-                return;
-            }
-            string value = "";
-            if (commandArgs.Length > 1)
-                value = string.Join(" ", commandArgs.Skip(1));
-            var type = BotProperties.ALL_PROPERTIES[property].Type;
-            if(!string.IsNullOrEmpty(value) && BotProperties.IsMulticolumn(property))
-            {
-                value = value.Replace(",", " ").Replace(";", " ").Replace("|", " ");
-                string[] tokens = value.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                value = string.Join("|", tokens) + "|";
-            }
-            using (var storage = new LiteDbStorage(_instanceName))
-            {
-                storage.SetProperty(property, value);
-            }
-        }
-
-        static void ShowProperty(string[] commandArgs)
-        {
-            if (commandArgs.Length < 1)
-            {
-                _logger.Error("SHOW-PROPERTY: Expecting command arguments - <property>");
-                return;
-            }
-            _logger.Info("SHOW-PROPERTY[{0}]", commandArgs[0]);
-            string property = commandArgs[0];
-            using (var storage = new LiteDbStorage(_instanceName))
-            {
-                string value = storage.GetProperty(property);
-                Console.WriteLine("{0}='{1}'", property, value);
-            }
-        }
-
-        static void ListProperties(string[] commandArgs)
-        {
-            using(var storage = new LiteDbStorage(_instanceName))
-            {
-                _logger.Info("LIST-PROPERTIES");
-                foreach(string property in BotProperties.ALL_PROPERTIES.Keys)
-                {
-                    Console.WriteLine("{0}='{1}'", property, storage.GetProperty(property));
-                }
-            }
+            _logger.Info("Setting token for instance '{0}'", _instanceName);
+            string token = commandArgs[0];
+            var configuration = Configuration.Load(_instanceName);
+            configuration.Token = token;
+            configuration.Save();
         }
 
     }

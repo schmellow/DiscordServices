@@ -66,12 +66,7 @@ namespace Schmellow.DiscordServices.Pinger.Logging
             Console.WriteLine(FormatMessage("WARN", ex, message, args));
         }
 
-        public void Dispose()
-        {
-            // No-op
-        }
-
-        string FormatMessage(string level, string message, params object[] args)
+        private string FormatMessage(string level, string message, params object[] args)
         {
             return string.Format(
                 "{0}| {1}| {2}",
@@ -80,7 +75,7 @@ namespace Schmellow.DiscordServices.Pinger.Logging
                 string.Format(message, args));
         }
 
-        string FormatMessage(string level, Exception ex, string message, params object[] args)
+        private string FormatMessage(string level, Exception ex, string message, params object[] args)
         {
             return string.Format(
                 "{0}| {1}| {2} {3}",
