@@ -172,6 +172,17 @@ namespace Schmellow.DiscordServices.Pinger.Services
             await PingEvent(DateTime.Now, guildId, se);
         }
 
+        public PingData GetPingEvent(ulong guildId)
+        {
+            if(_nextPing != null && _nextPing.EventMap.ContainsKey(guildId))
+            {
+                return new PingData(
+                    _nextPing.Date,
+                    _nextPing.EventMap.Where(kv => kv.Key == guildId).ToDictionary(kv => kv.Key, kv => kv.Value));
+            }
+            return null;
+        }
+
         public ScheduledEvent GetEventById(ulong guildId, int eventId)
         {
             var events = _db.GetCollection<ScheduledEvent>(guildId.ToString());

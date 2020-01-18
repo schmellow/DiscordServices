@@ -2,7 +2,9 @@
 using Discord.Commands;
 using Schmellow.DiscordServices.Pinger.Services;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -148,7 +150,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         }
 
         [Command("events")]
-        [Summary("Lists last [10] [pending]/all/cancelled/passed events")]
+        [Summary("Lists last [10] [pending]/all/cancelled/passed events. Or next ping with 'status',")]
         [RequireContext(ContextType.Guild)]
         [RequireChannel("ControlChannels")]
         [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
@@ -174,6 +176,8 @@ namespace Schmellow.DiscordServices.Pinger.Commands
                     case "passed":
                         state = EventState.Passed;
                         break;
+                    case "status":
+                        return await ShowStatus();
                     default:
                         throw new Exception(string.Format("Unknown query '{0}'", query));
                 }
@@ -199,6 +203,46 @@ namespace Schmellow.DiscordServices.Pinger.Commands
                 _logger.Error(ex, ex.Message);
                 return CommandResult.FromError(ex.Message);
             }
+        }
+
+        private async Task<RuntimeResult> ShowStatus()
+        {
+            SchedulingService.PingData pingData = _schedulingService.GetPingEvent(Context.Guild.Id);
+            Dictionary<string, List<string>> info = new Dictionary<string, List<string>>();
+            if (pingData != null)
+            {
+                var pingEvents = pingData.EventMap[Context.Guild.Id];
+                var events = _schedulingService.GetEvents(Context.Guild.Id, EventState.Pending)
+                    .Where(e => pingEvents.Contains(e.Id));
+                foreach (ScheduledEvent se in events)
+                {
+                    string type = pingData.Date < se.TargetDate ? "Reminder for" : "Main event for";
+                    List<string> values;
+                    if (!info.TryGetValue(type, out values))
+                    {
+                        values = new List<string>();
+                        info[type] = values;
+                    }
+                    values.Add(string.Format("[{0}] at {1} from {2}", se.Id, se.TargetDateString, se.User));
+                }
+            }
+            if (info.Any())
+            {
+                EmbedBuilder embedBuilder = new EmbedBuilder();
+                embedBuilder.Title = "Next ping event - " + pingData.Date.ToString("dd.MM.yyyy HH:mm");
+                foreach (var kv in info)
+                {
+                    embedBuilder.AddField(
+                        kv.Key,
+                        string.Join("\n", kv.Value));
+                }
+                await ReplyAsync(string.Empty, false, embedBuilder.Build());
+            }
+            else
+            {
+                await ReplyAsync("No ping events pending");
+            }
+            return CommandResult.FromSuccess();
         }
 
         [Command("change-message")]
