@@ -163,7 +163,7 @@ namespace Schmellow.DiscordServices.Pinger.Services
                 id = 0;
             string lquery = query.ToLowerInvariant();
             ScheduledEvent se = GetEvents(guildId, EventState.Pending)
-                .OrderByDescending(e => e.TargetDate)
+                .OrderBy(e => e.TargetDate)
                 .Where(e => e.Id == id || e.Message.ToLowerInvariant().Contains(lquery))
                 .FirstOrDefault();
             if (se == null)

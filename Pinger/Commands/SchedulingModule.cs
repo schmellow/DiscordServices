@@ -27,6 +27,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireChannel("ControlChannels")]
         [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
         [RequireUser("ElevatedUsers", Group = "Access")]
+        [RequireUser("PingUsers", Group = "Access")]
         public async Task<RuntimeResult> ScheduleEvent(string date, string time, [Remainder] string message)
         {
             try
@@ -49,6 +50,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireChannel("ControlChannels")]
         [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
         [RequireUser("ElevatedUsers", Group = "Access")]
+        [RequireUser("PingUsers", Group = "Access")]
         public async Task<RuntimeResult> RepeatEvent(int eventId, string date = "", string time = "")
         {
             try
@@ -76,6 +78,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireChannel("ControlChannels")]
         [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
         [RequireUser("ElevatedUsers", Group = "Access")]
+        [RequireUser("PingUsers", Group = "Access")]
         public async Task<RuntimeResult> RemindEvent([Remainder] string query)
         {
             try
@@ -96,6 +99,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireChannel("ControlChannels")]
         [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
         [RequireUser("ElevatedUsers", Group = "Access")]
+        [RequireUser("PingUsers", Group = "Access")]
         public async Task<RuntimeResult> CancelEvent(int eventId)
         {
             try
@@ -117,6 +121,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireChannel("ControlChannels")]
         [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
         [RequireUser("ElevatedUsers", Group = "Access")]
+        [RequireUser("PingUsers", Group = "Access")]
         public async Task<RuntimeResult> ShowEvent(int eventId)
         {
             try
@@ -148,6 +153,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireChannel("ControlChannels")]
         [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
         [RequireUser("ElevatedUsers", Group = "Access")]
+        [RequireUser("PingUsers", Group = "Access")]
         public async Task<RuntimeResult> ListEvents(string query = "pending", int limit = 10)
         {
             try
@@ -201,6 +207,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireChannel("ControlChannels")]
         [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
         [RequireUser("ElevatedUsers", Group = "Access")]
+        [RequireUser("PingUsers", Group = "Access")]
         public async Task<RuntimeResult> SetEventMessage(int eventId, [Remainder] string newMessage)
         {
             try
@@ -222,6 +229,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireChannel("ControlChannels")]
         [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
         [RequireUser("ElevatedUsers", Group = "Access")]
+        [RequireUser("PingUsers", Group = "Access")]
         public async Task<RuntimeResult> SetEventDate(int eventId, string newDate = "", string newTime = "")
         {
             try
@@ -260,6 +268,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [RequireChannel("ControlChannels")]
         [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
         [RequireUser("ElevatedUsers", Group = "Access")]
+        [RequireUser("PingUsers", Group = "Access")]
         public async Task<RuntimeResult> SetEventReminders(int eventId, params string[] offsets)
         {
             try
