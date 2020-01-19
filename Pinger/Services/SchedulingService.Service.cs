@@ -207,7 +207,7 @@ namespace Schmellow.DiscordServices.Pinger.Services
                 return events.Find(query).OrderBy(e => e.Id);
         }
 
-        Regex _offsetRegex = new Regex(@"(\d+h)?(\d+m)?(\d+s)?", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        Regex _offsetRegex = new Regex(@"(\d+d)?(\d+h)?(\d+m)?(\d+s)?", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private TimeSpan[] ParseOffsets(params string[] offsets)
         {
             HashSet<TimeSpan> spans = new HashSet<TimeSpan>();
@@ -219,6 +219,7 @@ namespace Schmellow.DiscordServices.Pinger.Services
                     Match match = _offsetRegex.Match(offset);
                     while (match != null && match.Success)
                     {
+                        int days = 0;
                         int hours = 0;
                         int minutes = 0;
                         int seconds = 0;
@@ -231,6 +232,9 @@ namespace Schmellow.DiscordServices.Pinger.Services
                             var value = group.Value.TrimEnd(lastChar);
                             switch (lastChar)
                             {
+                                case 'd':
+                                    int.TryParse(value, out days);
+                                    break;
                                 case 'h':
                                     int.TryParse(value, out hours);
                                     break;
@@ -244,7 +248,8 @@ namespace Schmellow.DiscordServices.Pinger.Services
                                     break;
                             }
                         }
-                        spans.Add(TimeSpan.FromHours(hours)
+                        spans.Add(TimeSpan.FromDays(days)
+                            + TimeSpan.FromHours(hours)
                             + TimeSpan.FromMinutes(minutes)
                             + TimeSpan.FromSeconds(seconds));
                         match = match.NextMatch();
@@ -496,7 +501,7 @@ namespace Schmellow.DiscordServices.Pinger.Services
 
                 DateTime now = DateTime.Now.ToUniversalTime();
                 // for waiting more than int.MaxValue
-                if (now < _nextPing.Date) 
+                if (_timer.Interval == int.MaxValue && (_nextPing.Date - now).TotalMilliseconds > 50) 
                 {
                     _logger.Info("Reached the end of gated wait interval");
                     return;
