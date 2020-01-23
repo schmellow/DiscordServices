@@ -29,6 +29,7 @@ namespace Schmellow.DiscordServices.Pinger
             _client.Log += Log;
             _client.MessageReceived += HandleMessage;
             _client.Ready += ClientReady;
+            _client.Disconnected += HandleDisconnect;
 
             _commandService = new CommandService(new CommandServiceConfig
             {
@@ -151,6 +152,13 @@ namespace Schmellow.DiscordServices.Pinger
                 outcome);
             if(error)
                 await context.Channel.SendMessageAsync(outcome);
+        }
+
+        private Task HandleDisconnect(Exception arg)
+        {
+            _logger.Critical(arg, arg.Message);
+            Program.Stop();
+            return Task.CompletedTask;
         }
 
     }

@@ -144,5 +144,10 @@ namespace Schmellow.DiscordServices.Pinger
             configuration.Save();
         }
 
+        public static void Stop()
+        {
+            InstanceManager.Stop(_logger, _instanceName);
+        }
+
     }
 }
