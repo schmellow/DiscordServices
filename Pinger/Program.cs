@@ -1,35 +1,37 @@
-﻿using Schmellow.DiscordServices.Pinger.Logging;
+﻿using Discord;
+using Discord.Commands;
+using Discord.WebSocket;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using NLog.Extensions.Logging;
+using Schmellow.DiscordServices.Pinger.Data;
+using Schmellow.DiscordServices.Pinger.Models;
 using Schmellow.DiscordServices.Pinger.Services;
 using System;
-using System.Collections.Generic;
+using System.IO.Pipes;
 using System.Linq;
 
 namespace Schmellow.DiscordServices.Pinger
 {
     public sealed class Program
     {
-        public const string ENV_WORKDIR = "PINGER_WORKDIR";
+        private readonly static string PIPE_NAME = "Schmellow.DiscordServices.Pinger.";
 
-        static ILogger _logger;
-        static string _instanceName;
+        private static NLog.Logger _logger = null;
+        private static string _instanceName = string.Empty;
 
         static Program()
         {
             Console.CancelKeyPress += Console_CancelKeyPress;
-            var workDir = Environment.GetEnvironmentVariable(ENV_WORKDIR);
-            if (!string.IsNullOrEmpty(workDir))
-            {
-                workDir = workDir.Trim();
-                System.IO.Directory.SetCurrentDirectory(workDir);
-            }
         }
 
         static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
         {
-            if (InstanceManager.IsRunning(_logger, _instanceName))
+
+            if(IsRunning())
             {
                 e.Cancel = true;
-                InstanceManager.Stop(_logger, _instanceName); ;
+                Stop();
             }
             else
             {
@@ -41,112 +43,239 @@ namespace Schmellow.DiscordServices.Pinger
         {
             try
             {
-                if(args.Length > 0 && args[0] == "help")
+                if(args.Length == 0 || args[0] == "help")
                 {
+                    Console.WriteLine("Expecting command");
                     Console.WriteLine("Available commands:");
-                    Console.WriteLine(" - run");
-                    Console.WriteLine(" - stop");
-                    Console.WriteLine(" - set-token <token>");
-                    Console.WriteLine("Use '{0}' variable to override working directory", ENV_WORKDIR);
+                    Console.WriteLine(" * run <instanceName> <arguments>");
+                    Console.WriteLine("   --discord-token - discord auth token string [MANDATORY]");
+                    Console.WriteLine("   --tracker-url - tracker service url [default=none]");
+                    Console.WriteLine("   --tracker-token - tracker service auth token [default=none]");
+                    Console.WriteLine("   --data-directory - db storage location [default=./]");
+                    Console.WriteLine(" * stop <instanceName>");
                     return;
                 }
-                else if(args.Length < 2)
+
+                string command = args[0];
+
+                BotProperties botProperties = ParseProperties(args.Skip(1).ToArray());
+                _instanceName = botProperties.InstanceName;
+                
+                NLog.LayoutRenderers.LayoutRenderer.Register("instance", (logevent) => botProperties.InstanceName);
+                NLog.LogManager.Configuration = new NLog.Config.XmlLoggingConfiguration("logger.config");
+                _logger = NLog.LogManager.GetCurrentClassLogger();
+
+                if (string.IsNullOrEmpty(_instanceName))
+                    throw new ArgumentException("Instance name is not set");
+
+                if (command == "run")
                 {
-                    Console.WriteLine("Expecting arguments: <instanceName> <command> or help");
-                    return;
+                    Run(botProperties);
                 }
-                // Begin init
-                _instanceName = args[0].Trim();
-                try
+                else if(command == "stop")
                 {
-                    _logger = new NLogAdapter(_instanceName);
+                    Stop();
                 }
-                catch (Exception ex)
+                else
                 {
-                    _logger = new FallbackConsoleLogger();
-                    _logger.Error(ex, ex.Message);
-                }
-                _logger.Info("Instance '{0}'", _instanceName);
-                _logger.Info("Running in '{0}'", System.IO.Directory.GetCurrentDirectory());
-                // Parse and execute command
-                string command = args[1].Trim();
-                List<string> commandArgsList = new List<string>();
-                for (int i = 2; i < args.Length; i++)
-                    commandArgsList.Add(args[i].Trim());
-                string[] commandArgs = commandArgsList.ToArray();
-                switch (command)
-                {
-                    case "run":
-                        Run(commandArgs);
-                        break;
-                    case "stop":
-                        Stop(commandArgs);
-                        break;
-                    case "set-token":
-                        SetToken(commandArgs);
-                        break;
-                    default:
-                        _logger.Error("Unknown command '{0}'", command);
-                        break;
+                    throw new ArgumentException("Unknown command '" + command + "'");
                 }
             }
             catch(Exception ex)
             {
-                if (_logger != null)
-                    _logger.Error(ex, ex.Message);
-                else
-                    Console.WriteLine(ex.ToString());
+                LogError(ex.ToString());
             }
             finally
             {
-                if (_logger != null && _logger is IDisposable)
-                    ((IDisposable)_logger).Dispose();
+                NLog.LogManager.Shutdown();
             }
         }
 
-        static void Run(string[] commandArgs)
+        private static char[] _argSplitter = new char[] { '=' };
+        private static BotProperties ParseProperties(string[] args)
         {
-            if(InstanceManager.IsRunning(_logger, _instanceName))
+            BotProperties botProperties = new BotProperties();
+            botProperties.InstanceName = args.FirstOrDefault(a => !a.StartsWith("--"));
+            foreach (string arg in args.Where(a => a.StartsWith("--")))
             {
-                _logger.Error("Instance '{0}' already running", _instanceName);
-                return;
+                var tokens = arg.Split(_argSplitter, StringSplitOptions.RemoveEmptyEntries);
+                if (tokens.Length != 2)
+                    continue;
+                string name = tokens[0].Trim('-');
+                string value = tokens[1].Trim('\'').Trim('"');
+                switch (name)
+                {
+                    case "discord-token":
+                        botProperties.DiscordToken = value;
+                        break;
+                    case "tracker-url":
+                        botProperties.TrackerUrl = value;
+                        break;
+                    case "tracker-token":
+                        botProperties.TrackerToken = value;
+                        break;
+                    case "data-directory":
+                        botProperties.DataDirectory = value;
+                        break;
+                    default:
+                        LogInfo("Unknown parameter '{0}'", name);
+                        break;
+                }
             }
-            _logger.Info("Running instance '{0}'", _instanceName);
-            var configuration = Configuration.Load(_instanceName);
-            var bot = new Bot(_logger, configuration);
-            bot.Run().GetAwaiter().GetResult();
-            InstanceManager.Run(_logger, _instanceName);
-            bot.Stop().GetAwaiter().GetResult();
+            return botProperties;
         }
 
-        static void Stop(string[] commandArgs)
+        private static ServiceProvider ConfigureServices(BotProperties botProperties)
         {
-            if(!InstanceManager.IsRunning(_logger, _instanceName))
+            // configure services
+            var services = new ServiceCollection();
+            services.AddLogging(loggingBuilder =>
             {
-                _logger.Error("No instance '{0}' detected to stop", _instanceName);
-                return;
-            }
-            _logger.Info("Instance '{0}' detected running, stopping", _instanceName);
-            InstanceManager.Stop(_logger, _instanceName);
+                // configure Logging with NLog
+                loggingBuilder.ClearProviders();
+                loggingBuilder.SetMinimumLevel(LogLevel.Trace);
+                loggingBuilder.AddNLog();
+            });
+            services.AddSingleton<IServiceProvider>(p => p);
+            services.AddSingleton(botProperties);
+            services.AddSingleton<LiteDBStorage>();
+            services.AddSingleton<IGuildPropertyStorage>(p => p.GetRequiredService<LiteDBStorage>());
+            services.AddSingleton<IEventStorage>(p => p.GetRequiredService<LiteDBStorage>());
+            services.AddSingleton<DiscordSocketClient>();
+            services.AddSingleton<IDiscordClient>(p => p.GetRequiredService<DiscordSocketClient>());
+            services.AddSingleton<CommandService>(p =>
+            {
+                return new CommandService(new CommandServiceConfig()
+                {
+                    LogLevel = LogSeverity.Info,
+                    CaseSensitiveCommands = false
+                });
+            });
+            services.AddSingleton<MessagingService>();
+            services.AddSingleton<TrackerService>();
+            services.AddSingleton<SchedulingService>();
+            services.AddSingleton<Bot>();
+            return services.BuildServiceProvider();
         }
 
-        static void SetToken(string[] commandArgs)
+        private static void Run(BotProperties botProperties)
         {
-            if(commandArgs.Length < 1)
+            if (IsRunning())
+                throw new Exception("Instance '" + _instanceName + "' is already running");
+
+            LogInfo("Running instance '{0}'", _instanceName);
+
+            if (string.IsNullOrEmpty(botProperties.DiscordToken))
+                throw new ArgumentException("Discord token is not set");
+
+            if (string.IsNullOrEmpty(botProperties.TrackerToken) ||
+                string.IsNullOrEmpty(botProperties.TrackerUrl))
             {
-                _logger.Error("Expecting token string");
-                return;
+                LogWarning("Tracker service properties are not set, PM commands will not be available");
             }
-            _logger.Info("Setting token for instance '{0}'", _instanceName);
-            string token = commandArgs[0];
-            var configuration = Configuration.Load(_instanceName);
-            configuration.Token = token;
-            configuration.Save();
+
+            using (var services = ConfigureServices(botProperties))
+            {
+                var bot = services.GetRequiredService<Bot>();
+                bot.Run().GetAwaiter().GetResult();
+                Block();
+                bot.Stop().GetAwaiter().GetResult();
+            }
         }
 
         public static void Stop()
         {
-            InstanceManager.Stop(_logger, _instanceName);
+            if (!IsRunning())
+                throw new Exception("Instance '" + _instanceName + "' is not running");
+            LogInfo("Stopping instance '{0}'",  _instanceName);
+            try
+            {
+                using (var client = new NamedPipeClientStream(".", PIPE_NAME + _instanceName, PipeDirection.Out))
+                {
+                    client.Connect(1000);
+                    client.WriteByte(2);
+                }
+            }
+            catch (TimeoutException)
+            {
+                // Suppress timeout exception
+            }
+        }
+
+        private static void Block()
+        {
+            bool run = true;
+            while (run)
+            {
+                try
+                {
+                    using (var server = new NamedPipeServerStream(PIPE_NAME + _instanceName, PipeDirection.InOut))
+                    {
+                        server.WaitForConnection();
+                        switch (server.ReadByte())
+                        {
+                            case 1:
+                                server.WriteByte(1);
+                                break;
+                            case 2:
+                                run = false;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogError(ex.ToString());
+                    run = false;
+                }
+            }
+        }
+
+        private static bool IsRunning()
+        {
+            try
+            {
+                using (var client = new NamedPipeClientStream(".", PIPE_NAME + _instanceName, PipeDirection.InOut))
+                {
+                    client.Connect(1000);
+                    client.WriteByte(1);
+                    return client.ReadByte() == 1;
+                }
+            }
+            catch (TimeoutException)
+            {
+                // Suppress timeout exception
+            }
+            return false;
+        }
+
+        private static void LogInfo(string message, params string[] args)
+        {
+            message = string.Format(message, args);
+            if (_logger != null)
+                _logger.Info(message);
+            else
+                Console.WriteLine(message);
+        }
+
+        private static void LogWarning(string message, params string[] args)
+        {
+            message = string.Format(message, args);
+            if (_logger != null)
+                _logger.Warn(message);
+            else
+                Console.WriteLine("WARNING: " + message);
+        }
+
+        private static void LogError(string message, params string[] args)
+        {
+            message = string.Format(message, args);
+            if (_logger != null)
+                _logger.Error(message);
+            else
+                Console.WriteLine("ERROR: " + message);
         }
 
     }

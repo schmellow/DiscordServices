@@ -7,8 +7,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pinger", "Pinger\Pinger.csp
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{BE75827B-4741-4007-BE36-74449A242DCC}"
 	ProjectSection(SolutionItems) = preProject
+		config_notes.txt = config_notes.txt
 		todo.txt = todo.txt
 	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tracker", "Tracker\Tracker.csproj", "{68C0F93F-8079-48F4-B0D6-33ECCF755CA8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,6 +23,10 @@ Global
 		{535E9BE2-BEC9-4012-A45F-5EB950A7C288}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{535E9BE2-BEC9-4012-A45F-5EB950A7C288}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{535E9BE2-BEC9-4012-A45F-5EB950A7C288}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68C0F93F-8079-48F4-B0D6-33ECCF755CA8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68C0F93F-8079-48F4-B0D6-33ECCF755CA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68C0F93F-8079-48F4-B0D6-33ECCF755CA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68C0F93F-8079-48F4-B0D6-33ECCF755CA8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

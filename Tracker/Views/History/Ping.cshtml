@@ -1,0 +1,83 @@
+﻿@model HistoryPingVM
+@{
+    ViewData["Title"] = string.Format("Ping {0}", Model.Id);
+}
+<div class="text-right">
+    @Context.User.Identity.Name
+    |
+    <a href="@Url.Action("Logout", "Auth")">Sign out</a>
+</div>
+<div class="text-center">
+    <h4>Ping @Model.Id</h4>
+    <p class="text-left">
+        <a href="@(Url.Action("Index", "history") + Model.ParentPageArg)">Back</a>
+    </p>
+    <h6 class="text-left">
+        <a data-toggle="collapse" href="#infoTable">Show/hide ping info</a>
+    </h6>
+    <table class="table table-sm collapse" id="infoTable">
+        <thead>
+            <tr>
+                <th>Guild</th>
+                <th>Date</th>
+                <th>Author</th>
+                <th>Text</th>
+                <th>Users</th>
+                <th>Actions</th>
+                <th>Views</th>
+                <th>Other</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>@Model.Guild</td>
+                <td>@Model.Created.ToUniversalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                <td>@Model.Author</td>
+                <td class="text-left">@Html.Raw(Model.Text.Html())</td>
+                <td>@Model.UserCount</td>
+                <td>@Model.ActionCount</td>
+                <td>@Model.ViewsCount</td>
+                <td>@Model.OtherCount</td>
+            </tr>
+        </tbody>
+    </table>
+    <h6 class="text-left">
+        Links:
+    </h6>
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>ID</th>
+                <th>Actions</th>
+                <th>Views</th>
+                <th>Other</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Links.Any() == false)
+            {
+                <tr>
+                    <td colspan="5" align="center">No links to display</td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var link in Model.Links)
+                {
+                    <tr class="@(link.OtherCount > 0 ? "table-warning" : "table-default")">
+                        <td>@link.User</td>
+                        <td class="text-left">
+                            <a href="@Url.Action("Link", "History", new { pingId = Model.Id, linkId = link.Id.ToShortString() })">
+                                @link.Id.ToShortString()
+                            </a>
+                        </td>
+                        <td>@link.ActionCount</td>
+                        <td>@link.ViewsCount</td>
+                        <td>@link.OtherCount</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>

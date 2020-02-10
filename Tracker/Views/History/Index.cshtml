@@ -1,0 +1,70 @@
+﻿@model HistoryIndexVM
+@{
+    ViewData["Title"] = "Ping History";
+}
+<div class="text-right">
+    @Context.User.Identity.Name
+    |
+    <a href="@Url.Action("Logout", "Auth")">Sign out</a>
+</div>
+<div class="text-center">
+    <h4>Ping history</h4>
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Guild</th>
+                <th>Date</th>
+                <th>Author</th>
+                <th>Text</th>
+                <th>Users</th>
+                <th>Actions</th>
+                <th>Views</th>
+                <th>Other</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Pings.Any() == false)
+            {
+                <tr>
+                    <td colspan="9" align="center">No pings to display</td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var ping in Model.Pings)
+                {
+                    <tr class="@(ping.OtherCount > 0 ? "table-warning" : "table-default")">
+                        <td>@ping.Id</td>
+                        <td>@ping.Guild</td>
+                        <td>@ping.Created.ToUniversalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                        <td>@ping.Author</td>
+                        <td class="text-left">
+                            <a href="@(Url.Action("Ping", "History", new { pingId = ping.Id }) + Model.ParentPageArg)">
+                                @Html.Raw(ping.Text.ShortenTo(256).Html())
+                            </a>
+                        </td>
+                        <td>@ping.UserCount</td>
+                        <td>@ping.ActionCount</td>
+                        <td>@ping.ViewsCount</td>
+                        <td>@ping.OtherCount</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+    <div class="text-right">
+        @if (Model.TotalPages > 1)
+        {
+        <span>@Model.PageNum/@Model.TotalPages</span>
+        }
+        @if (Model.HasPreviousPage)
+        {
+            <a href="@(Url.Action("Index", "History") + Model.PreviousPageArg)">Previous</a>
+        }
+        @if (Model.HasNextPage)
+        {
+            <a href="@(Url.Action("Index", "History") + Model.NextPageArg)">Next</a>
+        }
+    </div>
+</div>

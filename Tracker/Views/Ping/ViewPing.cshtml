@@ -1,0 +1,23 @@
+﻿@model Ping
+@{
+    ViewData["Title"] = "Ping from " + Model.Author;
+}
+@section Scripts {
+<environment include="Development">
+    <script src="~/js/site.js" asp-append-version="true"></script>
+</environment>
+<environment exclude="Development">
+    <script src="~/js/site.min.js" asp-append-version="true"></script>
+</environment>
+<script>
+    $(document).ready(function () { init(); })
+</script>
+}
+<div class="text-center">
+    <h2>
+        [@Model.Created.ToUniversalTime().ToString("dd.MM.yyyy HH:mm")] @Model.AuthorShort() pinged:
+    </h2>
+    <h4 id="pingContent" class="text-left">
+        @Html.Raw(Model.Text.Linkify().Html())
+    </h4>
+</div>

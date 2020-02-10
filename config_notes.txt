@@ -1,0 +1,26 @@
+Pinger:
+-------
+Pinger application is instance based - you can run several instances concurrently.
+Each instance has its own configuration file and event db.
+
+Each instance can be connected to multiple servers (guilds).
+Most configuration options are guild based and stored inside configuration file by guild id:
+ - access parameters
+ - ping channels (for pings and scheduled event reminders)
+ - offsets for reminders
+Events are stored inside instance db on guild basis as well
+
+Some options are strictly instance based:
+ - bot auth token
+ - tracker service url
+ - tracker service auth token
+
+If bot is used on several guilds and tracker service is enabled, it will use single tracker service for all guilds
+
+
+Tracker:
+--------
+Tracker service is instance based as well.
+To use tracker with Pinger you must generate a token for the instance, and set token and service url in Pinger instance parameters
+Tracker url will be a base for urls that are PMed to users, so make sure your DNS resolution is set up.
+Access to history is done through EVE SSO. To add users you must whitelist them.

@@ -338,3 +338,8 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+*.db
+logs/
+/Pinger/Properties/
+/Tracker/Properties/
+/Tracker/.config/

@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "Pinger": {
-      "commandName": "Project",
-      "commandLineArgs": "test run"
-    }
-  }
-}

@@ -1,4 +1,7 @@
 ﻿using Discord;
+using Microsoft.Extensions.Logging;
+using Schmellow.DiscordServices.Pinger.Data;
+using Schmellow.DiscordServices.Pinger.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,96 +11,96 @@ namespace Schmellow.DiscordServices.Pinger.Services
 {
     public sealed class MessagingService
     {
-        private ILogger _logger;
-        private Configuration _configuration;
-        private IDiscordClient _client;
+        private readonly ILogger<MessagingService> _logger;
+        private readonly IGuildPropertyStorage _guildPropertyStorage;
+        private readonly IDiscordClient _client;
 
-        public MessagingService(ILogger logger, Configuration configuration, IDiscordClient client)
+        private bool _dmInProgress = false;
+
+        public MessagingService(
+            ILogger<MessagingService> logger,
+            IGuildPropertyStorage guildPropertyStorage, 
+            IDiscordClient client)
         {
             _logger = logger;
-            _configuration = configuration;
+            _guildPropertyStorage = guildPropertyStorage;
             _client = client;
         }
 
-        public async Task PingDefaultChannel(ulong guildId, string message, Embed embed)
+        public async Task PingDefaultChannel(ulong guildId, string message)
         {
-            var guildProperties = _configuration.GetGuildProperties(guildId);
-            if (string.IsNullOrEmpty(guildProperties.PingChannel))
+            var guildProperties = _guildPropertyStorage.EnsureGuildProperties(guildId);
+            var channelName = guildProperties.PingChannel;
+            if (string.IsNullOrEmpty(channelName))
                 throw new Exception("Default ping channel is not set");
-            await PingChannel(guildId, guildProperties.PingChannel, message, embed);
+            await PingChannel(guildId, channelName, message);
         }
 
-        public async Task PingChannel(ulong guildId, string channelName, string message, Embed embed)
+        public async Task PingChannel(ulong guildId, string channelName, string message)
         {
-            _logger.Info("Pinging channel '{0}'", channelName);
             IGuild guild = await _client.GetGuildAsync(guildId);
             if (guild == null)
                 throw new Exception(string.Format("Guild {0} was not found", guildId));
-
-            var channels = await guild.GetChannelsAsync();
-            IMessageChannel channel = channels
-                .Where(c => c is IMessageChannel && c.Name == channelName)
-                .FirstOrDefault() as IMessageChannel;
+            var channel = await guild.GetChannelByName<IMessageChannel>(channelName);
             if (channel == null)
-                throw new Exception(string.Format("Channel {0} was not found", channelName));
-            await PingChannel(channel, message, embed);
+                throw new Exception(string.Format("Channel {0} was not found on guild {1}", channelName, guild.Name));
+            await PingChannel(channel, message);
         }
 
-        public async Task PingChannel(IMessageChannel channel, string message, Embed embed)
+        public async Task PingChannel(IMessageChannel channel, string message)
         {
-            if(channel is IGuildChannel gChannel)
-            {
-                var guildProperties = _configuration.GetGuildProperties(gChannel.GuildId);
-                if(guildProperties.MessageDelay > 0)
-                {
-                    var sentMessage = await channel.SendMessageAsync("@everyone\n" + message);
-                    await Task.Delay(guildProperties.MessageDelay * 1000);
-                    await sentMessage.ModifyAsync(m => m.Embed = embed);
-                }
-                else
-                {
-                    await channel.SendMessageAsync("@everyone\n" + message, false, embed);
-                }
-            }
-            else
-            {
+            if (!(channel is IGuildChannel))
                 throw new Exception(string.Format("Channel {0} is not a guild channel", channel.Name));
-            }            
+
+            _logger.LogInformation("Pinging channel '{0}'", channel.Name);
+            await channel.SendMessageAsync("@everyone\n" + message);
         }
 
-        public async Task PingEvent(DateTime pingDate, ulong guildId, ScheduledEvent se)
+        public async Task DMUser(ulong guildId, string userName, string message)
         {
+            IGuild guild = await _client.GetGuildAsync(guildId);
+            if (guild == null)
+                throw new Exception(string.Format("Guild {0} was not found", guildId));
+            var user = await guild.GetUserByName<IUser>(userName);
+            if (user == null)
+                throw new Exception(string.Format("User {0} was not found on guild {1}", userName, guild.Name));
+            await DMUser(user, message);
+        }
+
+        public async Task DMUser(IUser user, string message)
+        {
+            if(!(user is IGuildUser))
+                throw new Exception(string.Format("User {0} is not a guild user", user.Username + "#" + user.Discriminator));
+
+            _logger.LogInformation("Sending message to " + user.Username + "#" + user.Discriminator);
+            await user.SendMessageAsync(message);
+        }
+
+        public async Task MassDM(IMessageChannel feedbackChannel, IEnumerable<PrivateMessage> pms)
+        {
+            if (_dmInProgress)
+                throw new Exception("Mass DM operation is in progress, please wait for it to finish");
             try
             {
-                GuildProperties properties = _configuration.GetGuildProperties(guildId);
-                string channelName;
-                if (se.TargetDate > pingDate)
+                _dmInProgress = true;
+                var span = TimeSpan.FromSeconds(pms.Count());
+                await feedbackChannel.SendMessageAsync("Mass DM operation started. Estimated completion time: " + span);
+                foreach (var pm in pms)
                 {
-                    _logger.Info("Pinging reminder for event {0}/[{1}]", guildId, se.Id);
-                    channelName = properties.RemindChannel;
-                    if (string.IsNullOrEmpty(channelName))
-                        channelName = properties.PingChannel;
-                    if (string.IsNullOrEmpty(channelName))
-                        throw new Exception("Neither remind nor ping channels are set for guild " + guildId);
+                    DMUser(pm.User, pm.Message).GetAwaiter().GetResult();
+                    Task.Delay(1000).GetAwaiter().GetResult();
                 }
-                else
-                {
-                    _logger.Info("Pinging main event {0}/[{1}]", guildId, se.Id);
-                    channelName = properties.PingChannel;
-                    if (string.IsNullOrEmpty(channelName))
-                        throw new Exception("Default ping channel is not set for guild " + guildId);
-                }
-                EmbedBuilder embedBuilder = new EmbedBuilder();
-                embedBuilder.Title = se.ETA;
-                embedBuilder.Description = se.Message;
-                embedBuilder.AddField("From " + se.User, "\u200b");
-                await PingChannel(guildId, channelName, string.Empty, embedBuilder.Build());
             }
-            catch (Exception ex)
+            catch(Exception ex)
             {
-                _logger.Error(ex, ex.Message);
+                _logger.LogError(ex, ex.Message);
+                throw new Exception("Unable to complete Mass DM operation");
+            }
+            finally
+            {
+                _dmInProgress = false;
+                await feedbackChannel.SendMessageAsync("Mass DM finished");
             }
         }
-
     }
 }

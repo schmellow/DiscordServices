@@ -1,5 +1,7 @@
 ﻿using Discord;
 using Discord.Commands;
+using Microsoft.Extensions.Logging;
+using Schmellow.DiscordServices.Pinger.Data;
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -9,25 +11,27 @@ namespace Schmellow.DiscordServices.Pinger.Commands
 {
     public sealed class ConfigurationModule : ModuleBase
     {
-        ILogger _logger;
-        Configuration _configuration;
+        ILogger<ConfigurationModule> _logger;
+        IGuildPropertyStorage _guildPropertyStorage;
 
-        public ConfigurationModule(ILogger logger, Configuration configuration)
+        public ConfigurationModule(
+            ILogger<ConfigurationModule> logger,
+            IGuildPropertyStorage guildPropertyStorage)
         {
             _logger = logger;
-            _configuration = configuration;
+            _guildPropertyStorage = guildPropertyStorage;
         }
 
         [Command("set")]
         [Summary("Sets property")]
         [RequireContext(ContextType.Guild)]
-        [RequireChannel("ControlChannels")]
-        [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
-        [RequireUser("ElevatedUsers", Group = "Access")]
+        [RequireControlChannel]
+        [RequirePermissionLevel(PermissionLevel.Elevated)]
         public async Task<RuntimeResult> SetProperty(string property, params string[] values)
         {
             try
             {
+                var guildProperties = _guildPropertyStorage.EnsureGuildProperties(Context.Guild.Id);
                 // parse possible user/role/channel values that are passed as id string
                 var idRegex = new Regex(@"<[\#\!\@\&]+(\d+)>");
                 var parsedValues = new List<string>();
@@ -62,13 +66,14 @@ namespace Schmellow.DiscordServices.Pinger.Commands
                     }
                 }
                 // set parsed values
-                _configuration.SetProperty(Context.Guild.Id, property, parsedValues.ToArray());
+                guildProperties.SetProperty(property, string.Join(";", parsedValues));
+                _guildPropertyStorage.UpdateGuildProperties(guildProperties);
                 await ReplyAsync("Ok");
                 return CommandResult.FromSuccess();
             }
             catch(Exception ex)
             {
-                _logger.Error(ex, ex.Message);
+                _logger.LogError(ex, ex.Message);
                 return CommandResult.FromError(ex.Message);
             }
         }
@@ -76,24 +81,24 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [Command("show")]
         [Summary("Shows property info and value")]
         [RequireContext(ContextType.Guild)]
-        [RequireChannel("ControlChannels")]
-        [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
-        [RequireUser("ElevatedUsers", Group = "Access")]
+        [RequireControlChannel]
+        [RequirePermissionLevel(PermissionLevel.Elevated)]
         public async Task<RuntimeResult> ShowProperty([Remainder] string property)
         {
             try
             {
+                var guildProperties = _guildPropertyStorage.EnsureGuildProperties(Context.Guild.Id);
                 EmbedBuilder embedBuilder = new EmbedBuilder();
-                embedBuilder.Title = _configuration.GetPropertyDescription(property);
+                embedBuilder.Title = guildProperties.GetPropertyDescription(property);
                 embedBuilder.Description = string.Format(
                     "'{0}'",
-                    _configuration.GetPropertyAsString(Context.Guild.Id, property));
+                    guildProperties.GetProperty(property));
                 await ReplyAsync(string.Empty, false, embedBuilder.Build());
                 return CommandResult.FromSuccess();
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, ex.Message);
+                _logger.LogError(ex, ex.Message);
                 return CommandResult.FromError(ex.Message);
             }
         }
@@ -101,21 +106,21 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         [Command("properties")]
         [Summary("Lists all available properties")]
         [RequireContext(ContextType.Guild)]
-        [RequireChannel("ControlChannels")]
-        [RequireUserPermission(GuildPermission.Administrator, Group = "Access")]
-        [RequireUser("ElevatedUsers", Group = "Access")]
+        [RequireControlChannel]
+        [RequirePermissionLevel(PermissionLevel.Elevated)]
         public async Task<RuntimeResult> ListProperties()
         {
             try
             {
+                var guildProperties = _guildPropertyStorage.EnsureGuildProperties(Context.Guild.Id);
                 EmbedBuilder embedBuilder = new EmbedBuilder();
                 embedBuilder.Title = "Available properties";
-                foreach (var propertyName in _configuration.PropertyNames)
+                foreach(var name in guildProperties.GetPropertyNames())
                 {
-                    string description = _configuration.GetPropertyDescription(propertyName);
-                    string value = _configuration.GetPropertyAsString(Context.Guild.Id, propertyName);
+                    string description = guildProperties.GetPropertyDescription(name);
+                    string value = guildProperties.GetProperty(name);
                     embedBuilder.AddField(
-                        string.Format("{0} - {1}", propertyName, description),
+                        string.Format("{0} - {1}", name, description),
                         string.Format("'{0}'", value));
                 }
                 if (embedBuilder.Fields.Count == 0)
@@ -130,7 +135,7 @@ namespace Schmellow.DiscordServices.Pinger.Commands
             }
             catch(Exception ex)
             {
-                _logger.Error(ex, ex.Message);
+                _logger.LogError(ex, ex.Message);
                 return CommandResult.FromError(ex.Message);
             }
         }
