@@ -83,19 +83,33 @@ namespace Schmellow.DiscordServices.Tracker.Data
             return Pings.FindById(pingId);
         }
 
-        public List<Ping> GetPings(int offset = 0, int limit = 0)
+        public List<Ping> GetPings(int offset = 0, int limit = 0, HashSet<string> guildFilters = null)
         {
-            var pings = Pings.Query()
-                .OrderByDescending(p => p.Id)
-                .Skip(offset);
+            ILiteQueryableResult<Ping> pings;
+            if(guildFilters != null && guildFilters.Any())
+            {
+                pings = Pings.Query()
+                    .Where(p => guildFilters.Contains(p.Guild))
+                    .OrderByDescending(p => p.Id)
+                    .Skip(offset);
+            }
+            else
+            {
+                pings = Pings.Query()
+                    .OrderByDescending(p => p.Id)
+                    .Skip(offset);
+            }
             if (limit > 0)
                 pings = pings.Limit(limit);
             return pings.ToList();
         }
 
-        public int GetPingCount()
+        public int GetPingCount(HashSet<string> guildFilters = null)
         {
-            return Pings.Count();
+            if (guildFilters != null && guildFilters.Any())
+                return Pings.Count(p => guildFilters.Contains(p.Guild));
+            else
+                return Pings.Count();
         }
 
         public Link GetLink(Guid linkId)

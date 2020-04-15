@@ -1,16 +1,21 @@
 ﻿@model HistoryPingVM
 @{
-    ViewData["Title"] = string.Format("Ping {0}", Model.Id);
+    ViewData["Title"] = string.Format(
+        "Ping at {0} from {1}", 
+        Model.Created.ToUniversalTime().ToString("dd.MM.yyyy HH:mm"), 
+        Model.Author);
 }
 <div class="text-right">
-    @Context.User.Identity.Name
-    |
-    <a href="@Url.Action("Logout", "Auth")">Sign out</a>
+    @if(Context.User.Identity.Name != "public")
+    {
+        var logoutUrl = Url.Action("Logout", "Auth");
+        <div>@Context.User.Identity.Name | <a href="@logoutUrl">Sign out</a></div>
+    }
 </div>
 <div class="text-center">
-    <h4>Ping @Model.Id</h4>
+    <h4>@ViewData["Title"]</h4>
     <p class="text-left">
-        <a href="@(Url.Action("Index", "history") + Model.ParentPageArg)">Back</a>
+        <a href="@Url.Action("Index", "history")">Back to index</a>
     </p>
     <h6 class="text-left">
         <a data-toggle="collapse" href="#infoTable">Show/hide ping info</a>
@@ -18,9 +23,6 @@
     <table class="table table-sm collapse" id="infoTable">
         <thead>
             <tr>
-                <th>Guild</th>
-                <th>Date</th>
-                <th>Author</th>
                 <th>Text</th>
                 <th>Users</th>
                 <th>Actions</th>
@@ -30,9 +32,6 @@
         </thead>
         <tbody>
             <tr>
-                <td>@Model.Guild</td>
-                <td>@Model.Created.ToUniversalTime().ToString("dd.MM.yyyy HH:mm")</td>
-                <td>@Model.Author</td>
                 <td class="text-left">@Html.Raw(Model.Text.Html())</td>
                 <td>@Model.UserCount</td>
                 <td>@Model.ActionCount</td>
@@ -41,6 +40,9 @@
             </tr>
         </tbody>
     </table>
+    <div class="text-left">
+        <a href="@Url.Action("Timeline", "History", new { pingId = Model.Id })">Actions timeline</a>
+    </div>
     <h6 class="text-left">
         Links:
     </h6>

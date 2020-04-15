@@ -44,58 +44,53 @@ namespace Schmellow.DiscordServices.Tracker
                     Console.WriteLine("   --public-history - allow public history access [switch, default unset]");
                     Console.WriteLine(" * stop <instanceName>");
                     Console.WriteLine(" * add-user <instanceName> <arguments>");
-                    Console.WriteLine("   --user - EVE character name [string, MANDATORY]");
+                    Console.WriteLine("   --character - EVE character name [string, MANDATORY]");
+                    Console.WriteLine("   --servers - allow browsing history only for specific servers [string, comma/semicolon separated, default=none]");
                     Console.WriteLine(" * remove-user <instanceName> <arguments>");
-                    Console.WriteLine("   --user - EVE character name [string, MANDATORY]");
+                    Console.WriteLine("   --character - EVE character name [string, MANDATORY]");
                     Console.WriteLine(" * list-users <instanceName>");
                     Console.WriteLine(" * generate-token");
                     return;
                 }
 
-                string command = args[0];
+                TrackerProperties trackerProperties = TrackerProperties.Parse(args);
+                _instanceName = trackerProperties.InstanceName;
 
-                if (command == "generate-token")
+                NLog.LayoutRenderers.LayoutRenderer.Register("instance", (logevent) => _instanceName);
+                _logger = NLog.Web.NLogBuilder.ConfigureNLog("logger.config").GetCurrentClassLogger();
+
+                if (trackerProperties.Command == "generate-token")
                 {
                     GenerateToken();
                 }
                 else
                 {
-                    TrackerProperties trackerProperties = ParseProperties(args.Skip(1).ToArray());
-                    _instanceName = trackerProperties.InstanceName;
-
-                    NLog.LayoutRenderers.LayoutRenderer.Register("instance", (logevent) => _instanceName);
-                    _logger = NLog.Web.NLogBuilder.ConfigureNLog("logger.config").GetCurrentClassLogger();
-
                     if (string.IsNullOrEmpty(_instanceName))
                         throw new ArgumentException("Instance name is not set");
 
-                    if (command == "run")
+                    if (trackerProperties.Command == "run")
                     {
                         Run(trackerProperties);
                     }
-                    else if (command == "stop")
+                    else if (trackerProperties.Command == "stop")
                     {
                         Stop();
                     }
-                    else if (command == "add-user")
+                    else if (trackerProperties.Command == "add-user")
                     {
-                        if (string.IsNullOrEmpty(trackerProperties.UserQuery))
-                            throw new ArgumentException("User name is not set");
                         AddUser(trackerProperties);
                     }
-                    else if (command == "remove-user")
+                    else if (trackerProperties.Command == "remove-user")
                     {
-                        if (string.IsNullOrEmpty(trackerProperties.UserQuery))
-                            throw new ArgumentException("User name is not set");
                         RemoveUser(trackerProperties);
                     }
-                    else if (command == "list-users")
+                    else if (trackerProperties.Command == "list-users")
                     {
                         ListUsers(trackerProperties);
                     }
                     else
                     {
-                        throw new ArgumentException("Unknown command '" + command + "'");
+                        throw new ArgumentException("Unknown command '" + trackerProperties.Command + "'");
                     }
                 }
             }
@@ -107,63 +102,6 @@ namespace Schmellow.DiscordServices.Tracker
             {
                 NLog.LogManager.Shutdown();
             }
-        }
-
-        private static char[] _argSplitter = new char[] { '=' };
-        private static TrackerProperties ParseProperties(string[] args)
-        {
-            TrackerProperties trackerProperties = new TrackerProperties();
-            trackerProperties.InstanceName = args.FirstOrDefault(a => !a.StartsWith("--"));
-            foreach (string arg in args.Where(a => a.StartsWith("--")))
-            {
-                var tokens = arg.Split(_argSplitter, StringSplitOptions.RemoveEmptyEntries);
-                string name = tokens[0].Trim('-');
-                string value = "";
-                if (tokens.Length > 1)
-                    value = string.Join("=", tokens.Skip(1)).Replace("\'", "").Replace("\"", "");
-                switch (name)
-                {
-                    case "pinger-token":
-                        trackerProperties.PingerToken = value;
-                        break;
-                    case "eve-id":
-                        trackerProperties.EveClientId = value;
-                        break;
-                    case "eve-secret":
-                        trackerProperties.EveClientSecret = value;
-                        break;
-                    case "data-directory":
-                        trackerProperties.DataDirectory = value;
-                        break;
-                    case "proxy-basepath":
-                        trackerProperties.ProxyBasePath = value.StartsWith('/') ? value : "/" + value;
-                        break;
-                    case "http-port":
-                        if (!string.IsNullOrEmpty(value))
-                            trackerProperties.HttpPort = value;
-                        break;
-                    case "https-port":
-                        if (!string.IsNullOrEmpty(value))
-                            trackerProperties.HttpsPort = value;
-                        break;
-                    case "disable-http":
-                        trackerProperties.DisableHttp = true;
-                        break;
-                    case "disable-https":
-                        trackerProperties.DisableHttps = true;
-                        break;
-                    case "public-history":
-                        trackerProperties.AllowPublicHistoryAccess = true;
-                        break;
-                    case "user":
-                        trackerProperties.UserQuery = value;
-                        break;
-                    default:
-                        LogInfo("Unknown parameter '{0}'", name);
-                        break;
-                }
-            }
-            return trackerProperties;
         }
 
         // courtesy of https://dotnetfiddle.net/grgEIh
@@ -332,46 +270,105 @@ namespace Schmellow.DiscordServices.Tracker
 
         private static void AddUser(TrackerProperties trackerProperties)
         {
+            if (string.IsNullOrEmpty(trackerProperties.CharacterName))
+                throw new ArgumentException("Character name is not set");
             var client = new ESIClient();
-            var user = client.GetUserByCharacterName(trackerProperties.UserQuery).GetAwaiter().GetResult();
+            var user = client.GetUserByCharacterName(trackerProperties.CharacterName).GetAwaiter().GetResult();
             if (user == null)
             {
-                Console.WriteLine("ERROR: unable to load EVE character {0}", trackerProperties.UserQuery);
+                Console.WriteLine("ERROR: unable to load EVE character {0}", trackerProperties.CharacterName);
                 return;
+            }
+            if(!string.IsNullOrEmpty(trackerProperties.ServerRestrictions))
+            {
+                var serverTokens = trackerProperties.ServerRestrictions
+                    .Split(
+                        new char[] { ';', ',' }, 
+                        StringSplitOptions.RemoveEmptyEntries)
+                    .Select(t => t.Trim());
+                user.RestrictedServers.Clear();
+                foreach (string token in serverTokens)
+                    user.RestrictedServers.Add(token);
             }
             using (var storage = new LiteDBStorage(trackerProperties))
             {
-                var id = storage.AddUser(user);
-                if (id > 0)
+                var storedUser = storage.GetUser(user.CharacterName);
+                if(storedUser != null)
                 {
-                    Console.WriteLine(
-                        "Added user [{0}][{1}] {2} - [{3}] {4} - [{5}] {6}",
-                        id,
-                        user.CharacterId,
-                        user.CharacterName,
-                        user.CorporationId,
-                        user.CorporationName,
-                        user.AllianceId,
-                        user.AllianceName);
+                    user.LocalId = storedUser.LocalId;
+                    if (storage.UpdateUser(user))
+                    {
+                        Console.WriteLine(
+                            "Updated user [{0}][{1}] {2} - [{3}] {4} - [{5}] {6}",
+                            user.LocalId,
+                            user.CharacterId,
+                            user.CharacterName,
+                            user.CorporationId,
+                            user.CorporationName,
+                            user.AllianceId,
+                            user.AllianceName);
+                        if(user.RestrictedServers.Any())
+                        {
+                            Console.WriteLine("Server restrictions:");
+                            foreach(var s in user.RestrictedServers)
+                                Console.WriteLine(" - {0}", s);
+                        }
+                        else
+                        {
+                            Console.WriteLine("No server restrictions set");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("ERROR: user update failed");
+                    }
                 }
                 else
                 {
-                    Console.WriteLine("ERROR: user creation failed");
+                    var id = storage.AddUser(user);
+                    if (id > 0)
+                    {
+                        Console.WriteLine(
+                            "Added user [{0}][{1}] {2} - [{3}] {4} - [{5}] {6}",
+                            id,
+                            user.CharacterId,
+                            user.CharacterName,
+                            user.CorporationId,
+                            user.CorporationName,
+                            user.AllianceId,
+                            user.AllianceName);
+                        if (user.RestrictedServers.Any())
+                        {
+                            Console.WriteLine("Server restrictions:");
+                            foreach (var s in user.RestrictedServers)
+                                Console.WriteLine(" - {0}", s);
+                        }
+                        else
+                        {
+                            Console.WriteLine("No server restrictions set");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("ERROR: user creation failed");
+                    }
                 }
             }
         }
 
         private static void RemoveUser(TrackerProperties trackerProperties)
         {
+            if (string.IsNullOrEmpty(trackerProperties.CharacterName))
+                throw new ArgumentException("Character name is not set");
             using (var storage = new Data.LiteDBStorage(trackerProperties))
             {
-                if (storage.DeleteUser(trackerProperties.UserQuery))
+                if (storage.DeleteUser(trackerProperties.CharacterName))
                 {
-                    Console.WriteLine("Deleted user {0}", trackerProperties.UserQuery);
+                    Console.WriteLine("Deleted user {0}", trackerProperties.CharacterName);
                 }
                 else
                 {
-                    Console.WriteLine("Error: user {0} was not found", trackerProperties.UserQuery);
+                    Console.WriteLine("Error: user {0} was not found", trackerProperties.CharacterName);
                 }
             }
         }
@@ -391,6 +388,11 @@ namespace Schmellow.DiscordServices.Tracker
                         user.CorporationName,
                         user.AllianceId,
                         user.AllianceName);
+                    if(user.RestrictedServers.Any())
+                    {
+                        foreach(var s in user.RestrictedServers)
+                            Console.WriteLine(" - {0}", s);
+                    }
                 }
             }
         }

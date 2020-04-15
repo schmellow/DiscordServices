@@ -49,6 +49,8 @@ namespace Schmellow.DiscordServices.Tracker.Data
 
         public User GetUser(string userName)
         {
+            if (string.IsNullOrEmpty(userName))
+                return null;
             return UserCollection.FindOne(u => u.CharacterName == userName);
         }
 

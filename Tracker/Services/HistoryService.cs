@@ -3,11 +3,13 @@ using Schmellow.DiscordServices.Tracker.Data;
 using Schmellow.DiscordServices.Tracker.Models;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Schmellow.DiscordServices.Tracker.Services
 {
     public class HistoryService
     {
+        private static readonly int PAGE_LIM = 20;
         private readonly ILogger<PingService> _logger;
         private readonly IPingStorage _pingStorage;
 
@@ -17,13 +19,13 @@ namespace Schmellow.DiscordServices.Tracker.Services
             _pingStorage = pingStorage;
         }
 
-        public HistoryIndexVM GetIndexData(int page)
+        public HistoryIndexVM GetIndexData(int page, User user)
         {
-            var pings = _pingStorage.GetPings((page - 1) * 20, 20);
+            List<Ping> pings = _pingStorage.GetPings((page - 1) * PAGE_LIM, PAGE_LIM, user?.RestrictedServers);
             var result = new HistoryIndexVM()
             {
                 PageNum = page,
-                TotalPages = (_pingStorage.GetPingCount() + 19) / 20
+                TotalPages = (_pingStorage.GetPingCount(user?.RestrictedServers) + (PAGE_LIM - 1)) / PAGE_LIM
             };
             foreach (Ping ping in pings)
             {
@@ -57,13 +59,23 @@ namespace Schmellow.DiscordServices.Tracker.Services
             return result;
         }
 
-        public HistoryPingVM GetPingData(int pingId, int parentPage)
+        public HistoryPingVM GetPingData(int pingId, User user)
         {
-            var ping = _pingStorage.GetPing(pingId);
+            Ping ping = _pingStorage.GetPing(pingId);
             if (ping == null)
                 return null;
-            var links = _pingStorage.GetLinks(ping.Id);
-            int userCount = links.Count;
+            if(user != null && 
+               user.RestrictedServers != null && 
+               user.RestrictedServers.Any() &&
+               user.RestrictedServers.Contains(ping.Guild) == false)
+            {
+                _logger.LogWarning(
+                    "User '{0}' is not allowed to browse pings from guild '{1}'", 
+                    user.CharacterName, 
+                    ping.Guild);
+                return null;
+            }
+            List<Link> links = _pingStorage.GetLinks(ping.Id);
             var result = new HistoryPingVM()
             {
                 Id = ping.Id,
@@ -71,10 +83,9 @@ namespace Schmellow.DiscordServices.Tracker.Services
                 Guild = ping.Guild,
                 Author = ping.Author,
                 Text = ping.Text,
-                UserCount = links.Count,
-                ParentPage = parentPage
+                UserCount = links.Count
             };
-            var actions = _pingStorage.GetActions(ping.Id);
+            List<LinkAction> actions = _pingStorage.GetActions(ping.Id);
             Dictionary<Guid, int> linkActionCount = new Dictionary<Guid, int>();
             Dictionary<Guid, int> linkViewCounts = new Dictionary<Guid, int>();
             Dictionary<Guid, int> linkOtherCounts = new Dictionary<Guid, int>();
@@ -119,14 +130,71 @@ namespace Schmellow.DiscordServices.Tracker.Services
             return result;
         }
 
-        public HistoryLinkVM GetLinkData(Guid linkId)
+        public HistoryTimelineVM GetTimelineData(int pingId, User user)
         {
-            var link = _pingStorage.GetLink(linkId);
-            if (link == null)
-                return null;
-            var ping = _pingStorage.GetPing(link.PingId);
+            Ping ping = _pingStorage.GetPing(pingId);
             if (ping == null)
                 return null;
+            if (user != null &&
+               user.RestrictedServers != null &&
+               user.RestrictedServers.Any() &&
+               user.RestrictedServers.Contains(ping.Guild) == false)
+            {
+                _logger.LogWarning(
+                    "User '{0}' is not allowed to browse pings from guild '{1}'",
+                    user.CharacterName,
+                    ping.Guild);
+                return null;
+            }
+            var result = new HistoryTimelineVM()
+            {
+                PingId = ping.Id,
+                PingCreated = ping.Created,
+                PingGuild = ping.Guild,
+                PingAuthor = ping.Author,
+                PingText = ping.Text,
+                ActionCount = 0,
+                ViewsCount = 0,
+                OtherCount = 0
+            };
+            List<Link> links = _pingStorage.GetLinks(ping.Id);
+            Dictionary<Guid, string> linkIdToUser = links.ToDictionary(l => l.Id, l => l.User);
+            List<LinkAction> actions = _pingStorage.GetActions(ping.Id);
+            foreach(LinkAction action in actions.OrderByDescending(a => a.When))
+            {
+                result.ActionCount++;
+                if (action.IsView)
+                    result.ViewsCount++;
+                else
+                    result.OtherCount++;
+                result.Actions.Add(new HistoryTimelineVM.HistoryAction()
+                {
+                    User = linkIdToUser[action.LinkId],
+                    Action = action
+                });
+            }
+            return result;
+        }
+
+        public HistoryLinkVM GetLinkData(Guid linkId, User user)
+        {
+            Link link = _pingStorage.GetLink(linkId);
+            if (link == null)
+                return null;
+            Ping ping = _pingStorage.GetPing(link.PingId);
+            if (ping == null)
+                return null;
+            if (user != null &&
+                user.RestrictedServers != null &&
+                user.RestrictedServers.Any() &&
+                user.RestrictedServers.Contains(ping.Guild) == false)
+            {
+                _logger.LogWarning(
+                    "User '{0}' is not allowed to browse pings from guild '{1}'", 
+                    user.CharacterName, 
+                    ping.Guild);
+                return null;
+            }
             var result = new HistoryLinkVM()
             {
                 Id = link.Id,
@@ -140,7 +208,7 @@ namespace Schmellow.DiscordServices.Tracker.Services
                 ViewsCount = 0,
                 OtherCount = 0
             };
-            var actions = _pingStorage.GetActions(link.Id);
+            List<LinkAction> actions = _pingStorage.GetActions(link.Id);
             foreach (LinkAction action in actions)
             {
                 result.Actions.Add(action);

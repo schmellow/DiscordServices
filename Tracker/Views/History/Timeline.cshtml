@@ -1,10 +1,9 @@
-﻿@model HistoryLinkVM
+﻿@model HistoryTimelineVM
 @{
     ViewData["Title"] = string.Format(
-        "Ping at {0} from {1} - User {2}", 
+        "Ping at {0} from {1} - Timeline", 
         Model.PingCreated.ToUniversalTime().ToString("dd.MM.yyyy HH:mm"), 
-        Model.PingAuthor, 
-        Model.User);
+        Model.PingAuthor);
 }
 <div class="text-right">
     @if(Context.User.Identity.Name != "public")
@@ -46,6 +45,7 @@
         <thead>
             <tr>
                 <th>When</th>
+                <th>User</th>
                 <th>Origin</th>
                 <th>User Agent</th>
                 <th>Data</th>
@@ -55,18 +55,19 @@
             @if (Model.Actions.Any() == false)
             {
                 <tr>
-                    <td colspan="4" align="center">No actions to display</td>
+                    <td colspan="5" align="center">No actions to display</td>
                 </tr>
             }
             else
             {
-                @foreach (var linkAction in Model.Actions)
+                @foreach (var action in Model.Actions)
                 {
-                    <tr class="@(linkAction.IsView ? "table-default" : "table-warning")">
-                        <td>@linkAction.When.ToUniversalTime().ToString("dd.MM.yyyy HH:mm")</td>
-                        <td>@linkAction.Origin</td>
-                        <td class="text-left">@linkAction.UserAgent</td>
-                        <td>@linkAction.Data</td>
+                    <tr class="@(action.Action.IsView ? "table-default" : "table-warning")">
+                        <td>@action.Action.When.ToUniversalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                        <td>@action.User</td>
+                        <td>@action.Action.Origin</td>
+                        <td class="text-left">@action.Action.UserAgent</td>
+                        <td>@action.Action.Data</td>
                     </tr>
                 }
             }

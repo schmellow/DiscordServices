@@ -9,7 +9,6 @@ using Schmellow.DiscordServices.Pinger.Models;
 using Schmellow.DiscordServices.Pinger.Services;
 using System;
 using System.IO.Pipes;
-using System.Linq;
 
 namespace Schmellow.DiscordServices.Pinger
 {
@@ -56,9 +55,7 @@ namespace Schmellow.DiscordServices.Pinger
                     return;
                 }
 
-                string command = args[0];
-
-                BotProperties botProperties = ParseProperties(args.Skip(1).ToArray());
+                BotProperties botProperties = BotProperties.Parse(args);
                 _instanceName = botProperties.InstanceName;
                 
                 NLog.LayoutRenderers.LayoutRenderer.Register("instance", (logevent) => botProperties.InstanceName);
@@ -68,17 +65,17 @@ namespace Schmellow.DiscordServices.Pinger
                 if (string.IsNullOrEmpty(_instanceName))
                     throw new ArgumentException("Instance name is not set");
 
-                if (command == "run")
+                if (botProperties.Command == "run")
                 {
                     Run(botProperties);
                 }
-                else if(command == "stop")
+                else if(botProperties.Command == "stop")
                 {
                     Stop();
                 }
                 else
                 {
-                    throw new ArgumentException("Unknown command '" + command + "'");
+                    throw new ArgumentException("Unknown command '" + botProperties.Command + "'");
                 }
             }
             catch(Exception ex)
@@ -89,40 +86,6 @@ namespace Schmellow.DiscordServices.Pinger
             {
                 NLog.LogManager.Shutdown();
             }
-        }
-
-        private static char[] _argSplitter = new char[] { '=' };
-        private static BotProperties ParseProperties(string[] args)
-        {
-            BotProperties botProperties = new BotProperties();
-            botProperties.InstanceName = args.FirstOrDefault(a => !a.StartsWith("--"));
-            foreach (string arg in args.Where(a => a.StartsWith("--")))
-            {
-                var tokens = arg.Split(_argSplitter, StringSplitOptions.RemoveEmptyEntries);
-                if (tokens.Length != 2)
-                    continue;
-                string name = tokens[0].Trim('-');
-                string value = tokens[1].Trim('\'').Trim('"');
-                switch (name)
-                {
-                    case "discord-token":
-                        botProperties.DiscordToken = value;
-                        break;
-                    case "tracker-url":
-                        botProperties.TrackerUrl = value;
-                        break;
-                    case "tracker-token":
-                        botProperties.TrackerToken = value;
-                        break;
-                    case "data-directory":
-                        botProperties.DataDirectory = value;
-                        break;
-                    default:
-                        LogInfo("Unknown parameter '{0}'", name);
-                        break;
-                }
-            }
-            return botProperties;
         }
 
         private static ServiceProvider ConfigureServices(BotProperties botProperties)

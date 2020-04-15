@@ -1,4 +1,6 @@
-﻿namespace Schmellow.DiscordServices.Tracker.Models
+﻿using System.Collections.Generic;
+
+namespace Schmellow.DiscordServices.Tracker.Models
 {
     public class User
     {
@@ -12,12 +14,19 @@
         public string CorporationName { get; set; }
         public string AllianceName { get; set; }
 
+        public HashSet<string> RestrictedServers { get; set; }
+
         public string AuthString
         {
             get
             {
                 return AllianceId + "/" + CorporationId + "/" + CharacterId;
             }
+        }
+
+        public User()
+        {
+            RestrictedServers = new HashSet<string>();
         }
     }
 }

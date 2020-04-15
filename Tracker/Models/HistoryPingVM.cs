@@ -23,22 +23,12 @@ namespace Schmellow.DiscordServices.Tracker.Models
         public int ActionCount { get; set; }
         public int ViewsCount { get; set; }
         public int OtherCount { get; set; }
-        public int ParentPage { get; set; }
 
         public List<HistoryLink> Links = new List<HistoryLink>();
 
         public HistoryPingVM()
         {
             Links = new List<HistoryLink>();
-            ParentPage = 1;
-        }
-
-        public string ParentPageArg
-        {
-            get
-            {
-                return ParentPage > 1 ? "?page=" + ParentPage : "";
-            }
         }
     }
 }

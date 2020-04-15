@@ -28,6 +28,7 @@ namespace Schmellow.DiscordServices.Tracker
                     options.LoginPath = "/auth/login";
                     options.LogoutPath = "/auth/logout";
                     options.ReturnUrlParameter = "";
+                    options.Events.OnValidatePrincipal += CookieValidator.ValidateAsync;
                 });
             services.AddSingleton<LiteDBStorage>(p => new LiteDBStorage(p.GetRequiredService<TrackerProperties>()));
             services.AddSingleton<IPingStorage>(p => p.GetRequiredService<LiteDBStorage>());
