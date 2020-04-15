@@ -77,6 +77,8 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         {
             try
             {
+                if(_messagingService.MassDMInProgress)
+                    throw new Exception("Mass DM operation is in progress, please wait for it to finish");
                 var urls = await _trackerService.GetTrackerUrlsDefault(
                     Context.Guild.Id,
                     Context.User.Id,
@@ -102,6 +104,8 @@ namespace Schmellow.DiscordServices.Pinger.Commands
         {
             try
             {
+                if (_messagingService.MassDMInProgress)
+                    throw new Exception("Mass DM operation is in progress, please wait for it to finish");
                 var urls = await _trackerService.GetTrackerUrls(
                     Context.User,
                     channel,

@@ -15,7 +15,7 @@ namespace Schmellow.DiscordServices.Pinger.Services
         private readonly IGuildPropertyStorage _guildPropertyStorage;
         private readonly IDiscordClient _client;
 
-        private bool _dmInProgress = false;
+        public bool MassDMInProgress { get; private set; } = false;
 
         public MessagingService(
             ILogger<MessagingService> logger,
@@ -78,11 +78,9 @@ namespace Schmellow.DiscordServices.Pinger.Services
 
         public async Task MassDM(IMessageChannel feedbackChannel, IEnumerable<PrivateMessage> pms)
         {
-            if (_dmInProgress)
-                throw new Exception("Mass DM operation is in progress, please wait for it to finish");
             try
             {
-                _dmInProgress = true;
+                MassDMInProgress = true;
                 var span = TimeSpan.FromSeconds(pms.Count());
                 await feedbackChannel.SendMessageAsync("Mass DM operation started. Estimated completion time: " + span);
                 foreach (var pm in pms)
@@ -98,9 +96,10 @@ namespace Schmellow.DiscordServices.Pinger.Services
             }
             finally
             {
-                _dmInProgress = false;
+                MassDMInProgress = false;
                 await feedbackChannel.SendMessageAsync("Mass DM finished");
             }
         }
+
     }
 }
