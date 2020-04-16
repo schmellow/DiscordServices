@@ -78,14 +78,27 @@ namespace Schmellow.DiscordServices.Pinger.Services
 
         public async Task MassDM(IMessageChannel feedbackChannel, IEnumerable<PrivateMessage> pms)
         {
+            int sent = 0;
+            int count = pms.Count();
             try
             {
                 MassDMInProgress = true;
                 var span = TimeSpan.FromSeconds(pms.Count());
-                await feedbackChannel.SendMessageAsync("Mass DM operation started. Estimated completion time: " + span);
+                await feedbackChannel.SendMessageAsync(string.Format(
+                    "Mass DM operation started for {0} users. Estimated completion time: {1}",
+                    count,
+                    span));
                 foreach (var pm in pms)
                 {
-                    DMUser(pm.User, pm.Message).GetAwaiter().GetResult();
+                    try
+                    {
+                        DMUser(pm.User, pm.Message).GetAwaiter().GetResult();
+                        sent++;
+                    }
+                    catch(Exception inex)
+                    {
+                        _logger.LogError(inex.Message);
+                    }
                     Task.Delay(1000).GetAwaiter().GetResult();
                 }
             }
@@ -97,7 +110,10 @@ namespace Schmellow.DiscordServices.Pinger.Services
             finally
             {
                 MassDMInProgress = false;
-                await feedbackChannel.SendMessageAsync("Mass DM finished");
+                await feedbackChannel.SendMessageAsync(string.Format(
+                    "Mass DM finished. {0}/{1} users DMed",
+                    sent,
+                    count));
             }
         }
 
