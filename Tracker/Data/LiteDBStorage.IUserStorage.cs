@@ -22,6 +22,8 @@ namespace Schmellow.DiscordServices.Tracker.Data
 
         public int AddUser(User user)
         {
+            if (user == null)
+                return 0;
             int id = UserCollection.Insert(user);
             if (id > 0)
                 _db.Checkpoint();
@@ -30,6 +32,8 @@ namespace Schmellow.DiscordServices.Tracker.Data
 
         public bool UpdateUser(User user)
         {
+            if (user == null)
+                return false;
             bool isSuccess = UserCollection.Update(user);
             if (isSuccess)
                 _db.Checkpoint();

@@ -38,7 +38,7 @@ namespace Schmellow.DiscordServices.Tracker.Controllers
             if(_trackerProperties.AllowPublicHistoryAccess)
             {
                 await PerformAuth("public");
-                return RedirectToAction("Index", "History");
+                return RedirectToAction("Pings", "History");
             }
             else
             {
@@ -98,7 +98,7 @@ namespace Schmellow.DiscordServices.Tracker.Controllers
                 return Unauthorized();
             }
             await PerformAuth(user.CharacterName);
-            return RedirectToAction("Index", "History");
+            return RedirectToAction("Pings", "History");
         }
 
         private async Task PerformAuth(string name)

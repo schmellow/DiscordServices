@@ -36,10 +36,13 @@ namespace Schmellow.DiscordServices.Tracker.Services
                 if (string.IsNullOrEmpty(json) || json == "{}")
                     return null;
                 JObject obj = JObject.Parse(json);
-                long characterId;
-                if (!long.TryParse(obj["character"].First.Value<string>(), out characterId))
-                    return null;
-                return await GetUserByCharacterId(characterId);
+                JToken characterValue = obj["character"];
+                if(characterValue != null && 
+                   long.TryParse(characterValue.Value<string>(), out long characterId))
+                {
+                    return await GetUserByCharacterId(characterId);
+                }
+                return null;
             }
         }
 
@@ -52,21 +55,35 @@ namespace Schmellow.DiscordServices.Tracker.Services
                 if (string.IsNullOrEmpty(json) || json == "{}")
                     return null;
                 JObject obj = JObject.Parse(json);
-                long allianceId, corpId;
-                if (!long.TryParse(obj["alliance_id"].Value<string>(), out allianceId))
+
+                JToken characterNameValue = obj["name"];
+                if (characterNameValue == null)
                     return null;
-                if (!long.TryParse(obj["corporation_id"].Value<string>(), out corpId))
-                    return null;
-                string name = obj["name"].Value<string>();
-                string allianceName = await GetAllianceName(allianceId);
-                string corpName = await GetCorporationName(corpId);
+                string characterName = obj["name"].Value<string>();
+
+                long allianceId = 0;
+                string allianceName = string.Empty;
+                JToken allianceIdValue = obj["alliance_id"];
+                if(allianceIdValue != null && long.TryParse(allianceIdValue.Value<string>(), out allianceId))
+                {
+                    allianceName = await GetAllianceName(allianceId);
+                }
+
+                long corporationId = 0;
+                string corporationName = string.Empty;
+                JToken corporationIdValue = obj["corporation_id"];
+                if(corporationIdValue != null && long.TryParse(corporationIdValue.Value<string>(), out corporationId))
+                {
+                    corporationName = await GetCorporationName(corporationId);
+                }
+
                 return new User()
                 {
                     CharacterId = characterId,
-                    CorporationId = corpId,
+                    CharacterName = characterName,
+                    CorporationId = corporationId,
+                    CorporationName = corporationName,
                     AllianceId = allianceId,
-                    CharacterName = name,
-                    CorporationName = corpName,
                     AllianceName = allianceName
                 };
             }
@@ -79,9 +96,12 @@ namespace Schmellow.DiscordServices.Tracker.Services
             {
                 var json = await response.Content.ReadAsStringAsync();
                 if (string.IsNullOrEmpty(json) || json == "{}")
-                    return null;
+                    return string.Empty;
                 JObject obj = JObject.Parse(json);
-                return obj["name"].Value<string>();
+                JToken nameValue = obj["name"];
+                if (nameValue == null)
+                    return string.Empty;
+                return nameValue.Value<string>();
             }
         }
 
@@ -92,9 +112,12 @@ namespace Schmellow.DiscordServices.Tracker.Services
             {
                 var json = await response.Content.ReadAsStringAsync();
                 if (string.IsNullOrEmpty(json) || json == "{}")
-                    return null;
+                    return string.Empty;
                 JObject obj = JObject.Parse(json);
-                return obj["name"].Value<string>();
+                JToken nameValue = obj["name"];
+                if (nameValue == null)
+                    return string.Empty;
+                return nameValue.Value<string>();
             }
         }
 
@@ -112,10 +135,13 @@ namespace Schmellow.DiscordServices.Tracker.Services
                     if (string.IsNullOrEmpty(json) || json == "{}")
                         return null;
                     JObject obj = JObject.Parse(json);
-                    long characterId = 0;
-                    if (!long.TryParse(obj["CharacterID"].Value<string>(), out characterId))
-                        return null;
-                    return await GetUserByCharacterId(characterId);
+                    JToken characterIdValue = obj["CharacterID"];
+                    if(characterIdValue != null &&
+                        long.TryParse(characterIdValue.Value<string>(), out long characterId))
+                    {
+                        return await GetUserByCharacterId(characterId);
+                    }
+                    return null;
                 }
             }
         }
@@ -138,7 +164,10 @@ namespace Schmellow.DiscordServices.Tracker.Services
                     if (string.IsNullOrEmpty(json) || json == "{}")
                         return string.Empty;
                     JObject obj = JObject.Parse(json);
-                    return obj["access_token"].Value<string>();
+                    JToken tokenValue = obj["access_token"];
+                    if (tokenValue == null)
+                        return string.Empty;
+                    return tokenValue.Value<string>();
                 }
             }
         }

@@ -1,0 +1,87 @@
+﻿@model LinkActionsVM
+@{
+    ViewData["PingTitle"] = string.Format(
+        "[{0}] from {1} at {2}",
+        Model.PingId,
+        Model.PingCreated,
+        Model.PingAuthor);
+    ViewData["Title"] = ViewData["PingTitle"] + " - " + Model.User;
+}
+<!-- Auth -->
+<div class="text-right">
+    @if (Context.User.Identity.Name != "public")
+    {
+        var logoutUrl = Url.Action("Logout", "Auth");
+        <div>@Context.User.Identity.Name | <a href="@logoutUrl">Sign out</a></div>
+    }
+</div>
+<!-- Content -->
+<div class="text-center">
+    <!-- Navigation -->
+    <table width="100%">
+        <tr>
+            <td class="text-left">
+                <a href="@Url.Action("Pings", "History")">Pings</a>
+                &nbsp;/&nbsp;
+                <a href="@Url.Action("PingLinks", "History", new { pingId = Model.PingId })">@ViewData["PingTitle"]</a>
+                &nbsp;/&nbsp;
+                @Model.User
+            </td>
+            <td class="text-right">
+                <a href="@Url.Action("UserActions", "History", new { user = Model.User })">
+                    All user actions
+                </a>
+            </td>
+        </tr>
+    </table>
+    <!-- Ping text -->
+    <div class="text-left">
+        <a data-toggle="collapse" href="#pingText">Show/hide ping text</a>
+    </div>
+    <div class="bg-light text-left collapse" id="pingText">
+        @Html.Raw(Model.PingText)
+    </div>
+    <!-- Data -->
+    <table width="100%">
+        <tr>
+            @if (Model.HasMultipleOrigins)
+            {
+                <td class="text-left text-primary">Multiple origin requests detected</td>
+            }
+            <td class="text-right">
+                <input type="checkbox" id="filterSuspicious" onclick="$('.nonsuspicious').toggle(0)" />
+                <label for="filterSuspicious">Show only suspicious</label>
+            </td>
+        </tr>
+    </table>
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>Origin</th>
+                <th>User Agent</th>
+                <th>Data</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Actions.Any() == false)
+            {
+                <tr>
+                    <td colspan="4" align="center">No actions to display</td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var action in Model.Actions)
+                {
+                    <tr class="@(action.IsSuspicious ? "table-warning" : "table-default nonsuspicious")">
+                        <td>@action.When</td>
+                        <td>@action.Origin</td>
+                        <td class="text-left">@action.UserAgent</td>
+                        <td>@action.Data</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>

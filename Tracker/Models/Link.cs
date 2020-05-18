@@ -6,6 +6,7 @@ namespace Schmellow.DiscordServices.Tracker.Models
     {
         public Guid Id { get; set; }
         public int PingId { get; set; }
+        public string Guild { get; set; }
         public string User { get; set; }
 
         public Link()

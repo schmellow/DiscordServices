@@ -1,0 +1,100 @@
+﻿@model PingLinksVM
+@{
+    ViewData["Title"] = string.Format(
+        "[{0}] from {1} at {2}",
+        Model.PingId,
+        Model.PingCreated,
+        Model.PingAuthor);
+}
+<!-- Auth -->
+<div class="text-right">
+    @if (Context.User.Identity.Name != "public")
+    {
+        var logoutUrl = Url.Action("Logout", "Auth");
+        <div>@Context.User.Identity.Name | <a href="@logoutUrl">Sign out</a></div>
+    }
+</div>
+<!-- Content -->
+<div class="text-center">
+    <!-- Navigation -->
+    <table width="100%">
+        <tr>
+            <td class="text-left">
+                <a href="@Url.Action("Pings", "History")">Pings</a>
+                &nbsp;/&nbsp;
+                @ViewData["Title"]
+            </td>
+            <td class="text-right">
+                <a href="@Url.Action("PingActions", "History", new { pingId = Model.PingId })">
+                    Actions
+                </a>
+            </td>
+        </tr>
+    </table>
+    <!-- Ping text -->
+    <div class="text-left">
+        <a data-toggle="collapse" href="#pingText">Show/hide ping text</a>
+    </div>
+    <div class="bg-light text-left collapse" id="pingText">
+        @Html.Raw(Model.PingText)
+    </div>
+    <!-- Data -->
+    @if (Model.MultipleOriginUsers.Any())
+    {
+        <div class="text-left">
+            <a data-toggle="collapse" href="#multipleOrigins">
+                Show/hide users with multiple request origins
+            </a>
+            <ul class="collapse" id="multipleOrigins">
+                @foreach (var kv in Model.MultipleOriginUsers.OrderBy(kv => kv.Key))
+                {
+                    <li>
+                        <a href="@Url.Action("LinkActions", "History", new { pingId = Model.PingId, linkId = kv.Value.ToString().ToLowerInvariant().Replace("-", "") })">
+                            @kv.Key
+                        </a>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+    <div class="text-right">
+        <input type="checkbox" id="filterSuspicious" onclick="$('.nonsuspicious').toggle(0)" />
+        <label for="filterSuspicious">Show only suspicious</label>
+    </div>
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>Link</th>
+                <th>Views</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Links.Any() == false)
+            {
+                <tr>
+                    <td colspan="3" align="center">No links to display</td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var link in Model.Links)
+                {
+                    <tr class="@(link.HasSuspiciousActions ? "table-warning" : "table-default nonsuspicious")">
+                        <td>
+                            <a href="@Url.Action("UserActions", "History", new { user = link.User })">
+                                @link.User
+                            </a>
+                        </td>
+                        <td class="text-left">
+                            <a href="@Url.Action("LinkActions", "History", new { pingId = Model.PingId, linkId = link.Id.ToString().ToLowerInvariant().Replace("-", "") })">
+                                @link.Id.ToString().ToLowerInvariant().Replace("-", "")
+                            </a>
+                        </td>
+                        <td>@link.ViewsCount</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>

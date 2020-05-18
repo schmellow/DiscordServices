@@ -40,8 +40,12 @@ namespace Schmellow.DiscordServices.Tracker.Data
         {
             Pings.EnsureIndex("Guild");
             Links.EnsureIndex("PingId");
+            Links.EnsureIndex("Guild");
+            Links.EnsureIndex("User");
             Actions.EnsureIndex("PingId");
             Actions.EnsureIndex("LinkId");
+            Actions.EnsureIndex("Guild");
+            Actions.EnsureIndex("User");
         }
 
         public int CreatePing(string guild, string author, string text, IEnumerable<string> users)
@@ -56,6 +60,7 @@ namespace Schmellow.DiscordServices.Tracker.Data
             var links = users.Select(user => new Link()
             {
                 PingId = pingId,
+                Guild = guild,
                 User = user
             });
             Links.InsertBulk(links);
@@ -69,6 +74,8 @@ namespace Schmellow.DiscordServices.Tracker.Data
             {
                 LinkId = link.Id,
                 PingId = link.PingId,
+                Guild = link.Guild,
+                User = link.User,
                 When = DateTime.Now,
                 Origin = origin,
                 UserAgent = useragent,
@@ -83,33 +90,25 @@ namespace Schmellow.DiscordServices.Tracker.Data
             return Pings.FindById(pingId);
         }
 
-        public List<Ping> GetPings(int offset = 0, int limit = 0, HashSet<string> guildFilters = null)
+        public Ping[] GetPings(HashSet<string> guilds = null)
         {
-            ILiteQueryableResult<Ping> pings;
-            if(guildFilters != null && guildFilters.Any())
+            if (guilds != null && guilds.Any())
             {
-                pings = Pings.Query()
-                    .Where(p => guildFilters.Contains(p.Guild))
+                var arr = new BsonArray();
+                foreach (string guild in guilds)
+                    arr.Add(guild);
+                return Pings
+                    .Find(Query.In("Guild", arr))
                     .OrderByDescending(p => p.Id)
-                    .Skip(offset);
+                    .ToArray();
             }
             else
             {
-                pings = Pings.Query()
+                return Pings
+                    .FindAll()
                     .OrderByDescending(p => p.Id)
-                    .Skip(offset);
+                    .ToArray();
             }
-            if (limit > 0)
-                pings = pings.Limit(limit);
-            return pings.ToList();
-        }
-
-        public int GetPingCount(HashSet<string> guildFilters = null)
-        {
-            if (guildFilters != null && guildFilters.Any())
-                return Pings.Count(p => guildFilters.Contains(p.Guild));
-            else
-                return Pings.Count();
         }
 
         public Link GetLink(Guid linkId)
@@ -117,12 +116,71 @@ namespace Schmellow.DiscordServices.Tracker.Data
             return Links.FindById(linkId);
         }
 
-        public List<Link> GetLinks(int pingId)
+        public Link[] GetLinks(params int[] pingIds)
         {
-            return Links.Query()
-                .Where(l => l.PingId == pingId)
-                .OrderBy(l => l.User)
-                .ToList();
+            if (pingIds.Length == 0)
+            {
+                return new Link[0];
+            }
+            else if(pingIds.Length == 1)
+            {
+                return Links
+                    .Find(Query.EQ("PingId", pingIds[0]))
+                    .OrderBy(l => l.User)
+                    .ToArray();
+            }
+            else
+            {
+                var arr = new BsonArray();
+                foreach (int id in pingIds)
+                    arr.Add(id);
+                return Links
+                    .Find(Query.In("PingId", arr))
+                    .OrderBy(l => l.User)
+                    .ToArray();
+            }
+        }
+
+        public Link[] GetLinks(string user = null, HashSet<string> guilds = null)
+        {
+            if(string.IsNullOrEmpty(user))
+            {
+                if (guilds != null && guilds.Any())
+                {
+                    var arr = new BsonArray();
+                    foreach (string guild in guilds)
+                        arr.Add(guild);
+                    return Links
+                        .Find(Query.In("Guild", arr))
+                        .OrderByDescending(l => l.PingId)
+                        .ToArray();
+                }
+                else
+                {
+                    return Links
+                        .FindAll()
+                        .OrderByDescending(l => l.PingId)
+                        .ToArray();
+                }
+            }
+            else
+            {
+                if (guilds != null && guilds.Any())
+                {
+                    return Links
+                        .Find(Query.EQ("User", user))
+                        .Where(l => guilds.Contains(l.Guild))
+                        .OrderByDescending(l => l.PingId)
+                        .ToArray();
+                }
+                else
+                {
+                    return Links
+                        .Find(Query.EQ("User", user))
+                        .OrderByDescending(l => l.PingId)
+                        .ToArray();
+                }
+            }
         }
 
         public LinkAction GetAction(int actionId)
@@ -130,20 +188,96 @@ namespace Schmellow.DiscordServices.Tracker.Data
             return Actions.FindById(actionId);
         }
 
-        public List<LinkAction> GetActions(int pingId)
+        public LinkAction[] GetActions(params int[] pingIds)
         {
-            return Actions.Query()
-                .Where(a => a.PingId == pingId)
-                .OrderByDescending(a => a.When)
-                .ToList();
+            if (pingIds.Length == 0)
+            {
+                return new LinkAction[0];
+            }
+            else if (pingIds.Length == 1)
+            {
+                return Actions
+                    .Find(Query.EQ("PingId", pingIds[0]))
+                    .OrderByDescending(a => a.When)
+                    .ToArray();
+            }
+            else
+            {
+                var arr = new BsonArray();
+                foreach (int id in pingIds)
+                    arr.Add(id);
+                return Actions
+                    .Find(Query.In("PingId", arr))
+                    .OrderByDescending(a => a.When)
+                    .ToArray();
+            }
         }
 
-        public List<LinkAction> GetActions(Guid linkId)
+        public LinkAction[] GetActions(params Guid[] linkIds)
         {
-            return Actions.Query()
-                .Where(a => a.LinkId == linkId)
-                .OrderByDescending(a => a.When)
-                .ToList();
+            if (linkIds.Length == 0)
+            {
+                return new LinkAction[0];
+            }
+            else if (linkIds.Length == 1)
+            {
+                return Actions
+                    .Find(Query.EQ("LinkId", linkIds[0]))
+                    .OrderByDescending(a => a.When)
+                    .ToArray();
+            }
+            else
+            {
+                var arr = new BsonArray();
+                foreach (Guid id in linkIds)
+                    arr.Add(id);
+                return Actions
+                    .Find(Query.In("LinkId", arr))
+                    .OrderByDescending(a => a.When)
+                    .ToArray();
+            }
+        }
+
+        public LinkAction[] GetActions(string user = null, HashSet<string> guilds = null)
+        {
+            if(string.IsNullOrEmpty(user))
+            {
+                if (guilds != null && guilds.Any())
+                {
+                    var arr = new BsonArray();
+                    foreach (string guild in guilds)
+                        arr.Add(guild);
+                    return Actions
+                        .Find(Query.In("Guild", arr))
+                        .OrderByDescending(a => a.When)
+                        .ToArray();
+                }
+                else
+                {
+                    return Actions
+                        .FindAll()
+                        .OrderByDescending(a => a.When)
+                        .ToArray();
+                }
+            }
+            else
+            {
+                if (guilds != null && guilds.Any())
+                {
+                    return Actions
+                        .Find(Query.EQ("User", user))
+                        .Where(a => guilds.Contains(a.Guild))
+                        .OrderByDescending(a => a.When)
+                        .ToArray();
+                }
+                else
+                {
+                    return Actions
+                        .Find(Query.EQ("User", user))
+                        .OrderByDescending(a => a.When)
+                        .ToArray();
+                }
+            }
         }
     }
 }

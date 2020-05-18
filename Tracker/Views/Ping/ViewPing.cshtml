@@ -1,4 +1,4 @@
-﻿@model Ping
+﻿@model ViewPingVM
 @{
     ViewData["Title"] = "Ping from " + Model.Author;
 }
@@ -15,9 +15,9 @@
 }
 <div class="text-center">
     <h2>
-        [@Model.Created.ToUniversalTime().ToString("dd.MM.yyyy HH:mm")] @Model.AuthorShort() pinged:
+        [@Model.Created] @Model.Author pinged:
     </h2>
     <h4 id="pingContent" class="text-left">
-        @Html.Raw(Model.Text.Linkify().Html())
+        @Html.Raw(Model.Text)
     </h4>
 </div>

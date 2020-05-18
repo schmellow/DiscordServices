@@ -16,7 +16,7 @@ namespace Schmellow.DiscordServices.Tracker.Controllers
         private readonly HistoryService _historyService;
 
         public HistoryController(
-            ILogger<PingController> logger, 
+            ILogger<PingController> logger,
             IUserStorage userStorage,
             HistoryService historyService)
         {
@@ -26,44 +26,68 @@ namespace Schmellow.DiscordServices.Tracker.Controllers
         }
 
         [HttpGet]
-        public IActionResult Index(int page = 1)
+        public IActionResult Index()
         {
-            var userName = HttpContext?.User?.Identity?.Name;
-            var user = _userStorage.GetUser(userName);
-            var vm = _historyService.GetIndexData(page, user);
+            return RedirectToAction("Pings", "History");
+        }
+
+        [HttpGet("pings")]
+        public IActionResult Pings()
+        {
+            var viewerName = HttpContext?.User?.Identity?.Name;
+            var viewer = _userStorage.GetUser(viewerName);
+            var vm = _historyService.GetPingsData(viewer);
             return View(vm);
         }
 
-        [HttpGet("{pingId:int}")]
-        public IActionResult Ping(int pingId)
+        [HttpGet("pings/{pingId:int}")]
+        public IActionResult PingLinks([FromRoute] int pingId)
         {
-            var userName = HttpContext?.User?.Identity?.Name;
-            var user = _userStorage.GetUser(userName);
-            var vm = _historyService.GetPingData(pingId, user);
+            var viewerName = HttpContext?.User?.Identity?.Name;
+            var viewer = _userStorage.GetUser(viewerName);
+            var vm = _historyService.GetPingLinksData(pingId, viewer);
             if (vm == null)
                 return NotFound();
             return View(vm);
         }
 
-        [HttpGet("{pingId:int}/timeline")]
-        public IActionResult Timeline(int pingId)
+        [HttpGet("pings/{pingId:int}/actions")]
+        public IActionResult PingActions([FromRoute] int pingId)
         {
-            var userName = HttpContext?.User?.Identity?.Name;
-            var user = _userStorage.GetUser(userName);
-            var vm = _historyService.GetTimelineData(pingId, user);
+            var viewerName = HttpContext?.User?.Identity?.Name;
+            var viewer = _userStorage.GetUser(viewerName);
+            var vm = _historyService.GetPingActionsData(pingId, viewer);
             if (vm == null)
                 return NotFound();
             return View(vm);
         }
 
-        [HttpGet("{pingId:int}/{linkId:guid}")]
-        public IActionResult Link(Guid linkId)
+        [HttpGet("pings/{pingId:int}/{linkId:guid}")]
+        public IActionResult LinkActions([FromRoute] Guid linkId)
         {
-            var userName = HttpContext?.User?.Identity?.Name;
-            var user = _userStorage.GetUser(userName);
-            var vm = _historyService.GetLinkData(linkId, user);
+            var viewerName = HttpContext?.User?.Identity?.Name;
+            var viewer = _userStorage.GetUser(viewerName);
+            var vm = _historyService.GetLinkActionsData(linkId, viewer);
             if (vm == null)
                 return NotFound();
+            return View(vm);
+        }
+
+        [HttpGet("users")]
+        public IActionResult Users()
+        {
+            var viewerName = HttpContext?.User?.Identity?.Name;
+            var viewer = _userStorage.GetUser(viewerName);
+            var vm = _historyService.GetUsersData(viewer);
+            return View(vm);
+        }
+
+        [HttpGet("users/{user}")]
+        public IActionResult UserActions([FromRoute] string user)
+        {
+            var viewerName = HttpContext?.User?.Identity?.Name;
+            var viewer = _userStorage.GetUser(viewerName);
+            var vm = _historyService.GetUserActionsData(user, viewer);
             return View(vm);
         }
     }

@@ -10,14 +10,15 @@ namespace Schmellow.DiscordServices.Tracker.Data
         int CreateAction(Link link, string origin, string useragent, string data);
 
         Ping GetPing(int pingId);
-        List<Ping> GetPings(int offset = 0, int limit = 0, HashSet<string> guildFilters = null);
-        int GetPingCount(HashSet<string> guildFilters = null);
-        
+        Ping[] GetPings(HashSet<string> guilds = null);
+
         Link GetLink(Guid linkId);
-        List<Link> GetLinks(int pingId);
-        
+        Link[] GetLinks(params int[] pingIds);
+        Link[] GetLinks(string user = null, HashSet<string> guilds = null);
+
         LinkAction GetAction(int actionId);
-        List<LinkAction> GetActions(int pingId);
-        List<LinkAction> GetActions(Guid linkId);
+        LinkAction[] GetActions(params int[] pingIds);
+        LinkAction[] GetActions(params Guid[] linkIds);
+        LinkAction[] GetActions(string user = null, HashSet<string> guilds = null);
     }
 }

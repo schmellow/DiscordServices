@@ -20,20 +20,6 @@ namespace Schmellow.DiscordServices.Tracker.Controllers
             _pingService = pingService;
         }
 
-        [HttpGet("{linkId:guid}")]
-        public IActionResult ViewPing(Guid linkId)
-        {
-            Link link = _pingService.GetLink(linkId);
-            if (link == null)
-                return NotFound();
-            Ping ping = _pingService.GetPing(link);
-            if (ping == null)
-                return NotFound();
-            if (!_pingService.RegisterView(link, RequestIp, UserAgent))
-                return StatusCode(500);
-            return View(ping);
-        }
-
         [HttpPost]
         [Authorize(AuthenticationSchemes = "Token")]
         public Dictionary<string, string> CreatePing([FromBody] PingRequest request)
@@ -41,31 +27,33 @@ namespace Schmellow.DiscordServices.Tracker.Controllers
             return _pingService.CreatePing(request);
         }
 
+        [HttpGet("{linkId:guid}")]
+        public IActionResult ViewPing(Guid linkId)
+        {
+            string ip = Request.HttpContext.Connection.RemoteIpAddress.MapToIPv4().ToString();
+            string userAgent = Request.Headers["User-Agent"].ToString();
+            if (!_pingService.RegisterAction(linkId, ip, userAgent, "view"))
+                return StatusCode(500);
+
+            var vm = _pingService.GetPingData(linkId);
+            if (vm == null)
+                return NotFound();
+
+            return View(vm);
+        }
+
         [HttpPost("{linkId:guid}")]
         public IActionResult RegisterAction(Guid linkId, [FromBody] string data)
         {
-            Link link = _pingService.GetLink(linkId);
-            if (link == null)
-                return NotFound();
-            if (!_pingService.RegisterAction(link, RequestIp, UserAgent, data))
+            if (data == "view")
+            {
+                _logger.LogCritical("Attempt to spoof views");
                 return StatusCode(500);
-            return Ok();
-        }
-
-        private string RequestIp
-        {
-            get
-            {
-                return Request.HttpContext.Connection.RemoteIpAddress.MapToIPv4().ToString();
             }
-        }
 
-        private string UserAgent
-        {
-            get
-            {
-                return Request.Headers["User-Agent"].ToString();
-            }
+            string ip = Request.HttpContext.Connection.RemoteIpAddress.MapToIPv4().ToString();
+            string userAgent = Request.Headers["User-Agent"].ToString();
+            return _pingService.RegisterAction(linkId, ip, userAgent, data) ? Ok() : StatusCode(500);
         }
     }
 }

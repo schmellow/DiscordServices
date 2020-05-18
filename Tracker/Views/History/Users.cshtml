@@ -1,0 +1,63 @@
+﻿@model UsersVM
+@{
+    ViewData["Title"] = "Users";
+}
+<!-- Auth -->
+<div class="text-right">
+    @if (Context.User.Identity.Name != "public")
+    {
+        var logoutUrl = Url.Action("Logout", "Auth");
+        <div>@Context.User.Identity.Name | <a href="@logoutUrl">Sign out</a></div>
+    }
+</div>
+<!-- Content -->
+<div class="text-center">
+    <!-- Navigation -->
+    <table width="100%">
+        <tr>
+            <td class="text-left">
+                @ViewData["Title"]
+            </td>
+            <td class="text-right">
+                <a href="@Url.Action("Pings", "History")">Pings</a>
+            </td>
+        </tr>
+    </table>
+    <!-- Data -->
+    <div class="text-right">
+        <input type="checkbox" id="filterSuspicious" onclick="$('.nonsuspicious').toggle(0)" />
+        <label for="filterSuspicious">Show only suspicious</label>
+    </div>
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>Links</th>
+                <th>Views</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Users.Any() == false)
+            {
+                <tr>
+                    <td colspan="3" align="center">No users to display</td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var user in Model.Users.OrderBy(u => u.Name))
+                {
+                    <tr class="@(user.IsSuspicious ? "table-warning" : "table-default nonsuspicious")">
+                        <td>
+                            <a href="@Url.Action("UserActions", "History", new { user = user.Name })">
+                                @user.Name
+                            </a>
+                        </td>
+                        <td>@user.LinksCount</td>
+                        <td>@user.ViewsCount</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
